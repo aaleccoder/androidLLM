@@ -1,39 +1,65 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+import { Stack } from "expo-router";
+import { useState, useMemo } from "react";
+import { Portal, Modal, Provider as PaperProvider, IconButton } from "react-native-paper";
+import { View, Text } from "react-native";
+import { ThemeContext, createTheme } from './context/themeContext';
+import "./globals.css";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  const theme = useMemo(() => createTheme(isDarkMode), [isDarkMode]);
 
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
+  const HeaderRight = () => (
+    <View style={{ flexDirection: 'row' }}>
+      <IconButton
+        icon={isDarkMode ? "white-balance-sunny" : "moon-waxing-crescent"}
+        onPress={() => setIsDarkMode(!isDarkMode)}
+        iconColor={theme.colors.onSurface}
+      />
+      <IconButton
+        icon="cog"
+        onPress={() => setShowSettings(true)}
+        iconColor={theme.colors.onSurface}
+      />
+    </View>
+  );
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ThemeContext.Provider value={{ isDarkMode, setIsDarkMode, theme }}>
+      <PaperProvider theme={theme}>
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: theme.colors.surface,
+            },
+            headerTintColor: theme.colors.onSurface,
+          }}
+        >
+          <Stack.Screen
+            name="index"
+            options={{
+              title: "Chat",
+              headerRight: HeaderRight,
+            }}
+          />
+        </Stack>
+        <Portal>
+          <Modal
+            visible={showSettings}
+            onDismiss={() => setShowSettings(false)}
+            contentContainerStyle={{
+              backgroundColor: theme.colors.surface,
+              padding: 20,
+              margin: 20,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: theme.colors.onSurface }}>Settings</Text>
+          </Modal>
+        </Portal>
+      </PaperProvider>
+    </ThemeContext.Provider>
   );
 }
