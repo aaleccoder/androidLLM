@@ -11,7 +11,7 @@
  * - Chat history with thread management
  */
 import React, { useState, useEffect, useRef } from "react";
-import { View, ScrollView, BackHandler, StyleSheet, Text, Animated } from "react-native";
+import { View, ScrollView, BackHandler, StyleSheet, Text, Animated, AppState } from "react-native";
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../context/themeContext';
 import { ProtectedRoute, useAuth } from "../../hooks/useAuth";
@@ -19,7 +19,7 @@ import { useNavigation } from "expo-router";
 import { ChatMessage } from '../../components/ChatMessage';
 import { ChatInput } from '../../components/ChatInput';
 import { ActivityIndicator, Surface, IconButton, Button } from "react-native-paper";
-import { geminiService } from '../../services/geminiService';
+import { geminiService, GeminiModel } from '../../services/geminiService';
 import { useData, Message as DataMessage, ChatThread } from '../../context/dataContext';
 import * as Haptics from 'expo-haptics';
 import { ChatSidebar } from '../../components/ChatSidebar';
@@ -32,6 +32,7 @@ interface Message {
   isUser: boolean;
   text: string;
   timestamp?: number;
+  isStreaming?: boolean;
 }
 
 /**
@@ -40,26 +41,36 @@ interface Message {
 */
 export default function Chat() {
   const { isDarkMode, theme } = useTheme();
-  const { data, createChatThread, updateChatThread, setActiveThread } = useData();
+  const { data, createChatThread, updateChatThread, setActiveThread, saveData } = useData();
   const { getCurrentPassword } = useAuth();
 
   const [messages, setMessages] = useState<Message[]>([
     { 
       isUser: false, 
-      text: "# Hello! How can I help you today?\n\nI can assist with various tasks related to Android development. Feel free to ask me anything!",
+      text: "# Hello! How can I help you today?\n\nI'm ready to assist you with any questions or tasks you have.",
       timestamp: Date.now()
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
-  const [predictedQuery, setPredictedQuery] = useState<string>('');
-  const [showPrediction, setShowPrediction] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [apiKeySet, setApiKeySet] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState<string | undefined>(data?.activeThreadId);
   const [editingEnabled, setEditingEnabled] = useState(false);
+  const [currentModel, setCurrentModel] = useState<GeminiModel>(geminiService.getCurrentModel());
 
   const scrollViewRef = useRef<ScrollView>(null);
   const navigation = useNavigation();
+
+  const handleModelChange = async (model: GeminiModel) => {
+    // First save the current chat history
+    saveMessages();
+
+    // Then change the model and reset the chat
+    await geminiService.changeModel(model);
+    setCurrentModel(model);
+    handleNewChat();
+  };
 
   /**
    * Set the API key from the data context when component mounts
@@ -138,36 +149,61 @@ export default function Chat() {
   }, [messages, isLoading]);
 
   /**
-   * Save messages to the active thread whenever they change
+   * Save messages when the app goes to background or is closed
    */
+  const appStateRef = useRef(AppState.currentState);
+  const messagesRef = useRef(messages);
+  
+  // Keep messagesRef updated with the latest messages
   useEffect(() => {
-    if (currentThreadId && messages.length > 0) {
-      const messagesWithTimestamps = messages.map(msg => ({
-        isUser: msg.isUser,
-        text: msg.text,
-        timestamp: msg.timestamp || Date.now()
-      }));
-      
-      // Only save if we have a valid password and thread ID
-      try {
-        const password = getCurrentPassword();
-        if (password) {
-          updateChatThread(currentThreadId, messagesWithTimestamps, password);
-        }
-      } catch (error) {
-        console.error('Error saving messages:', error);
-      }
-    }
-  }, [messages, currentThreadId]);
+    messagesRef.current = messages;
+  }, [messages]);
 
-  /**
-   * Predict next query after messages change
-   */
+  // Set up AppState change listener to save data when app loses focus
   useEffect(() => {
-    if (apiKeySet && messages.length >= 3 && !isLoading) {
-      predictNextQuery();
+    const handleAppStateChange = (nextAppState: string) => {
+      // When the app transitions to background or inactive state
+      if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
+        console.log('App going to background, saving messages...');
+        saveMessages();
+      }
+      appStateRef.current = nextAppState as AppState['currentState'];
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    // Clean up the subscription on unmount
+    return () => {
+      subscription.remove();
+      // Final save when component unmounts (app closed)
+      saveMessages();
+    };
+    // We deliberately don't include saveMessages or messagesRef in the dependency array
+    // as that would cause constant refreshes
+  }, []);  // Empty dependency array to run only once on mount
+
+  // Function to save messages to storage
+  const saveMessages = () => {
+    if (!currentThreadId || messagesRef.current.length === 0) return;
+    
+    // Format messages for storage
+    const messagesWithTimestamps = messagesRef.current.map(msg => ({
+      isUser: msg.isUser,
+      text: msg.text,
+      timestamp: msg.timestamp || Date.now()
+    }));
+    
+    // Save to storage
+    try {
+      const password = getCurrentPassword();
+      if (password) {
+        console.log('Saving chat thread to storage...');
+        updateChatThread(currentThreadId, messagesWithTimestamps, password);
+      }
+    } catch (error) {
+      console.error('Error saving messages:', error);
     }
-  }, [messages, isLoading, apiKeySet]);
+  };
 
   /**
    * Create a new chat thread
@@ -183,21 +219,42 @@ export default function Chat() {
       // Reset Gemini chat context
       geminiService.resetChat();
       
-      // Create new thread in data store
-      const newThreadId = await createChatThread(password);
+      // Create welcome message
+      const initialMessage = { 
+        isUser: false, 
+        text: "# Hello! How can I help you today?\n\nI'm ready to assist you with any questions or tasks you have.",
+        timestamp: Date.now()
+      };
+      
+      // We'll update the state before API call to make UI more responsive
+      setMessages([initialMessage]);
+      
+      // Create new thread in data store with the initial message
+      // This prevents double-saving the welcome message
+      const updatedData = {
+        ...data,
+        chatThreads: [
+          ...(data?.chatThreads || []),
+          {
+            id: Date.now().toString(),
+            title: 'New Chat',
+            messages: [initialMessage],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        apiKeys: data?.apiKeys || { gemini: '', groq: '' },
+      };
+      
+      const newThreadId = updatedData.chatThreads[updatedData.chatThreads.length - 1].id;
+      updatedData.activeThreadId = newThreadId;
+      
+      // Update local state first for a responsive UI
       setCurrentThreadId(newThreadId);
       
-      // Reset messages
-      setMessages([
-        { 
-          isUser: false, 
-          text: "# Hello! How can I help you today?\n\nI can assist with various tasks related to Android development. Feel free to ask me anything!",
-          timestamp: Date.now()
-        }
-      ]);
+      // Then update the data store
+      await saveData(updatedData, password);
       
-      setPredictedQuery('');
-      setShowPrediction(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -211,6 +268,9 @@ export default function Chat() {
     if (threadId === currentThreadId) return;
     
     try {
+      // Save current messages before switching
+      saveMessages();
+      
       // Find the thread in data
       const thread = data?.chatThreads?.find(t => t.id === threadId);
       if (!thread) {
@@ -235,45 +295,10 @@ export default function Chat() {
         timestamp: msg.timestamp
       })));
       
-      // Reset Gemini chat context and load historical messages
+      // Reset Gemini chat context
       geminiService.resetChat();
-      // Optionally: If you want to maintain context in Gemini, you could iterate 
-      // through the thread messages and add them to Gemini's context
-      
-      setPredictedQuery('');
-      setShowPrediction(false);
     } catch (error) {
       console.error('Error selecting thread:', error);
-    }
-  };
-
-  /**
-   * Predict what the user might ask next
-   */
-  const predictNextQuery = async () => {
-    try {
-      const prediction = await geminiService.predictNextQuery();
-      if (prediction && prediction.trim()) {
-        setPredictedQuery(prediction);
-        setShowPrediction(true);
-      } else {
-        setShowPrediction(false);
-      }
-    } catch (error) {
-      console.error('Error predicting next query:', error);
-      setShowPrediction(false);
-    }
-  };
-
-  /**
-   * Use the predicted query
-   */
-  const usePredictedQuery = () => {
-    if (predictedQuery) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      handleSend(predictedQuery);
-      setShowPrediction(false);
-      setPredictedQuery('');
     }
   };
 
@@ -320,25 +345,50 @@ export default function Chat() {
     // Add user message
     setMessages(prev => [...prev, { isUser: true, text: message, timestamp: Date.now() }]);
     
-    // Set loading state
+    // Add initial bot message with streaming state
+    setMessages(prev => [...prev, { isUser: false, text: '', timestamp: Date.now(), isStreaming: true }]);
+    
+    // Set loading and generating states
     setIsLoading(true);
-    setShowPrediction(false);
+    setIsGenerating(true);
     
     try {
-      // Get response from Gemini API
-      const response = await geminiService.sendMessage(message);
-      
-      // Add bot response
-      setMessages(prev => [...prev, { isUser: false, text: response, timestamp: Date.now() }]);
+      // Get streaming response from Gemini API
+      await geminiService.sendMessage(message, (partialResponse) => {
+        // Update the streaming message with the partial response
+        setMessages(prev => {
+          const newMessages = [...prev];
+          const lastMessage = newMessages[newMessages.length - 1];
+          if (lastMessage && !lastMessage.isUser) {
+            lastMessage.text = partialResponse;
+          }
+          return newMessages;
+        });
+      });
+
+      // Mark streaming as complete
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage && !lastMessage.isUser) {
+          lastMessage.isStreaming = false;
+        }
+        return newMessages;
+      });
     } catch (error) {
       console.error('Error getting response:', error);
-      setMessages(prev => [...prev, { 
-        isUser: false, 
-        text: "I'm sorry, I encountered an error processing your request. Please try again.",
-        timestamp: Date.now()
-      }]);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage && !lastMessage.isUser) {
+          lastMessage.text = "I'm sorry, I encountered an error processing your request. Please try again.";
+          lastMessage.isStreaming = false;
+        }
+        return newMessages;
+      });
     } finally {
       setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -348,6 +398,12 @@ export default function Chat() {
   const toggleSidebar = () => {
     setShowSidebar(!showSidebar);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleStopGeneration = () => {
+    geminiService.cancelGeneration();
+    setIsGenerating(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   return (
@@ -420,6 +476,7 @@ export default function Chat() {
               key={index}
               message={message.text}
               isUser={message.isUser}
+              isStreaming={message.isStreaming}
             />
           ))}
           
@@ -439,37 +496,15 @@ export default function Chat() {
               </View>
             </Surface>
           )}
-          
-          {showPrediction && predictedQuery && !isLoading && (
-            <Surface 
-              style={[
-                styles.predictionContainer,
-                { backgroundColor: isDarkMode ? 'rgba(103, 80, 164, 0.15)' : 'rgba(103, 80, 164, 0.08)' }
-              ]} 
-              elevation={0}
-            >
-              <View style={styles.predictionContent}>
-                <Text 
-                  style={[
-                    styles.predictionText,
-                    { color: isDarkMode ? theme.colors.onSurfaceVariant : theme.colors.onSurface }
-                  ]}
-                >
-                  {predictedQuery}
-                </Text>
-                <IconButton
-                  icon="arrow-up-circle"
-                  size={20}
-                  iconColor={theme.colors.primary}
-                  onPress={usePredictedQuery}
-                  style={styles.usePredictionButton}
-                />
-              </View>
-            </Surface>
-          )}
         </ScrollView>
         
-        <ChatInput onSend={handleSend} />
+        <ChatInput 
+          onSend={handleSend}
+          isGenerating={isGenerating}
+          onStopGeneration={handleStopGeneration}
+          currentModel={currentModel}
+          onModelChange={handleModelChange}
+        />
       </View>
     </ProtectedRoute>
   );
@@ -524,27 +559,4 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  predictionContainer: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
-    borderRadius: 16,
-    padding: 12,
-    maxWidth: 800,
-    alignSelf: 'center',
-    width: '95%',
-  },
-  predictionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  predictionText: {
-    flex: 1,
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
-  usePredictionButton: {
-    margin: 0,
-  }
 });

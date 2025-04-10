@@ -1,4 +1,4 @@
-import { View, StyleSheet } from "react-native";
+import { View } from "react-native";
 import { IconButton } from "react-native-paper";
 import { MD3Theme } from "react-native-paper/lib/typescript/types";
 
@@ -9,7 +9,7 @@ interface IndexHeaderRight {
 }
 
 export const IndexHeaderRight = ({ isDarkMode, setIsDarkMode, theme }: IndexHeaderRight) => (
-    <View style={styles.container}>
+    <View className="flex-row items-center mr-2">
         <IconButton
             icon={isDarkMode ? "white-balance-sunny" : "moon-waxing-crescent"}
             onPress={() => setIsDarkMode(!isDarkMode)}
@@ -18,11 +18,3 @@ export const IndexHeaderRight = ({ isDarkMode, setIsDarkMode, theme }: IndexHead
         />
     </View>
 );
-
-const styles = StyleSheet.create({
-    container: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginRight: 8,
-    }
-});

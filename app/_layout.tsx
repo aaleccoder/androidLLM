@@ -6,6 +6,7 @@ import { ThemeContext, createTheme } from '../context/themeContext';
 import { DataProvider, useData } from '../context/dataContext';
 import { useAuth, AuthProvider } from '../hooks/useAuth';
 import { useTheme } from '../context/themeContext';
+import { geminiService, DEFAULT_SYSTEM_PROMPT } from '../services/geminiService';
 import "./globals.css";
 import { useFonts } from "expo-font";
 import { Inter_400Regular } from "@expo-google-fonts/inter";
@@ -28,12 +29,13 @@ function SettingsContent({
   const { theme } = useTheme();
   const [geminiKey, setGeminiKey] = useState(data?.apiKeys?.gemini || '');
   const [groqKey, setGroqKey] = useState(data?.apiKeys?.groq || '');
+  const [customPrompt, setCustomPrompt] = useState(data?.settings?.customPrompt || '');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showGroqKey, setShowGroqKey] = useState(false);
   const [password, setPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
 
-  const handleSaveKeys = async () => {
+  const handleSaveSettings = async () => {
     if (!isAuthenticated) return;
     
     const newData = {
@@ -42,7 +44,10 @@ function SettingsContent({
         gemini: geminiKey.trim(),
         groq: groqKey.trim()
       },
-      // Make sure chatThreads is always an array
+      settings: {
+        ...data?.settings,
+        customPrompt: customPrompt.trim() || undefined
+      },
       chatThreads: data?.chatThreads || []
     };
     
@@ -52,20 +57,24 @@ function SettingsContent({
         return;
       }
       await saveData(newData, password);
+      // Update the Gemini service with the new prompt
+      geminiService.setCustomPrompt(customPrompt.trim() || undefined);
       setShowPasswordInput(false);
       setPassword('');
     } catch (error) {
-      console.error('Error saving API keys:', error);
+      console.error('Error saving settings:', error);
     }
   };
 
   useEffect(() => {
     return () => {
-      if (geminiKey !== data?.apiKeys?.gemini || groqKey !== data?.apiKeys?.groq) {
-        handleSaveKeys();
+      if (geminiKey !== data?.apiKeys?.gemini || 
+          groqKey !== data?.apiKeys?.groq ||
+          customPrompt !== data?.settings?.customPrompt) {
+        handleSaveSettings();
       }
     };
-  }, [geminiKey, groqKey]);
+  }, [geminiKey, groqKey, customPrompt]);
 
   return (
     <Modal
@@ -140,29 +149,58 @@ function SettingsContent({
                     outlineStyle={styles.inputOutline}
                     theme={theme}
                   />
-                  {showPasswordInput && (
+                </View>
+              </Surface>
+
+              <List.Subheader style={[styles.subheader, { color: theme.colors.primary }]}>
+                Assistant Settings
+              </List.Subheader>
+              <Surface style={[styles.section, { backgroundColor: theme.colors.elevation.level1 }]} elevation={1}>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    mode="outlined"
+                    label="Custom System Prompt"
+                    value={customPrompt}
+                    onChangeText={setCustomPrompt}
+                    placeholder="Optional: Enter a system prompt to define the assistant's behavior"
+                    multiline
+                    numberOfLines={4}
+                    style={styles.input}
+                    outlineStyle={styles.inputOutline}
+                    theme={theme}
+                  />
+                  <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                    The assistant will use this prompt to understand its role and how to respond. Leave empty for no system prompt.
+                  </Text>
+                </View>
+              </Surface>
+
+              {showPasswordInput && (
+                <Surface style={[styles.section, { backgroundColor: theme.colors.elevation.level1 }]} elevation={1}>
+                  <View style={styles.inputContainer}>
                     <TextInput
                       mode="outlined"
                       label="Enter password to save changes"
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry
-                      right={<TextInput.Icon icon="check" onPress={handleSaveKeys} />}
+                      right={<TextInput.Icon icon="check" onPress={handleSaveSettings} />}
                       style={styles.input}
                       outlineStyle={styles.inputOutline}
                       theme={theme}
                     />
-                  )}
-                  <Button 
-                    mode="contained" 
-                    onPress={handleSaveKeys}
-                    style={styles.saveButton}
-                    icon="content-save"
-                  >
-                    Save API Keys
-                  </Button>
-                </View>
-              </Surface>
+                  </View>
+                </Surface>
+              )}
+
+              <Button 
+                mode="contained" 
+                onPress={handleSaveSettings}
+                style={styles.saveButton}
+                icon="content-save"
+              >
+                Save Settings
+              </Button>
             </>
           )}
           
@@ -326,5 +364,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: 16,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 8,
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, Text } from 'react-native';
 import { Surface } from 'react-native-paper';
 import { useTheme } from '../context/themeContext';
 import Markdown from 'react-native-markdown-display';
@@ -8,26 +8,21 @@ import { createMarkdownStyles } from '@/utils/markdownStyles';
 interface ChatMessageProps {
   message: string;
   isUser?: boolean;
+  isStreaming?: boolean;
 }
 
-export const ChatMessage = ({ message, isUser = false }: ChatMessageProps) => {
+export const ChatMessage = ({ message, isUser = false, isStreaming = false }: ChatMessageProps) => {
   const { theme, isDarkMode } = useTheme();
   const markdownStyles = createMarkdownStyles(theme);
   
   if (isUser) {
     return (
-      <View style={styles.userMessageWrapper}>
+      <View className="items-end my-1 mx-4 pb-0.5">
         <Surface
-          style={[
-            styles.userMessageBubble,
-            {
-              backgroundColor: theme.colors.primary,
-              borderTopRightRadius: 4,
-            }
-          ]}
+          className="max-w-[80%] px-4 py-2.5 rounded-message rounded-tr-sm bg-primary"
           elevation={0}
         >
-          <View style={styles.messageContent}>
+          <View className="flex-shrink">
             <Markdown style={{
               body: {
                 ...markdownStyles.body,
@@ -44,21 +39,16 @@ export const ChatMessage = ({ message, isUser = false }: ChatMessageProps) => {
 
   return (
     <Surface
-      style={[
-        styles.botMessageContainer,
-        {
-          backgroundColor: isDarkMode ? '#1E1E1E' : '#F7F7F8',
-        }
-      ]}
+      className={`w-full py-5 my-0.5 ${isDarkMode ? 'bg-neutral-900' : 'bg-neutral-50'}`}
       elevation={0}
     >
-      <View style={styles.botMessageContent}>
+      <View className="px-4 max-w-[800px] w-full self-center">
         <Markdown
           style={markdownStyles}
           rules={{
             code_block: (node, children, parent, styles) => (
-              <View key={node.key} style={[markdownStyles.code_block, { overflow: 'hidden' }]}> {/* Use markdownStyles explicitly */}
-                <Text style={{ color: '#FFFFFF' }}> {/* Ensure text color is white */}
+              <View key={node.key} className="overflow-hidden" style={markdownStyles.code_block}>
+                <Text className="text-white">
                   {children}
                 </Text>
               </View>
@@ -67,36 +57,10 @@ export const ChatMessage = ({ message, isUser = false }: ChatMessageProps) => {
         >
           {message}
         </Markdown>
+        {isStreaming && (
+          <View className={`h-1 w-[100px] mt-2 rounded-sm self-center bg-primary`} />
+        )}
       </View>
     </Surface>
   );
 };
-
-const styles = StyleSheet.create({
-  userMessageWrapper: {
-    alignItems: 'flex-end',
-    marginVertical: 4,
-    marginHorizontal: 16,
-    paddingBottom: 2,
-  },
-  userMessageBubble: {
-    maxWidth: '80%',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  messageContent: {
-    flexShrink: 1,
-  },
-  botMessageContainer: {
-    width: '100%',
-    paddingVertical: 20,
-    marginVertical: 2,
-  },
-  botMessageContent: {
-    paddingHorizontal: 16,
-    maxWidth: 800,
-    width: '100%',
-    alignSelf: 'center',
-  }
-});

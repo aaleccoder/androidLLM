@@ -71,8 +71,9 @@ const loadFile = async (password: string): Promise<any> => {
  * Writes data to a JSON file
  * @param {any} data - The data to write
  * @param {string} password - Password for encryption
+ * @param {boolean} verbose - Whether to log verbose messages, defaults to false
  */
-const writeFile = async (data: any, password: string): Promise<boolean> => {
+const writeFile = async (data: any, password: string, verbose: boolean = false): Promise<boolean> => {
   try {
     // Convert the data to a JSON string
     const jsonString = JSON.stringify(data);
@@ -84,7 +85,10 @@ const writeFile = async (data: any, password: string): Promise<boolean> => {
       encryptedData
     );
     
-    console.log('File encrypted and written successfully');
+    // Only log if verbose mode is on
+    if (verbose) {
+      console.log('File encrypted and written successfully');
+    }
     return true;
   } catch (error) {
     console.error('Error writing JSON file:', error);

@@ -23,6 +23,9 @@ export interface AppData {
   };
   chatThreads: ChatThread[];
   activeThreadId?: string;
+  settings?: {
+    customPrompt?: string;
+  };
 }
 
 interface DataContextType {
@@ -96,6 +99,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
    */
   const updateChatThread = async (threadId: string, messages: Message[], password: string) => {
     if (!data) throw new Error('No data loaded');
+    
+    // Check if any actual changes exist before updating
+    const existingThread = data.chatThreads.find(thread => thread.id === threadId);
+    if (!existingThread) {
+      throw new Error('Thread not found');
+    }
+    
+    // Skip update if messages are the same
+    if (existingThread.messages.length === messages.length && 
+        JSON.stringify(existingThread.messages) === JSON.stringify(messages)) {
+      console.log('No changes in messages, skipping update');
+      return;
+    }
     
     const updatedThreads = data.chatThreads.map(thread => {
       if (thread.id === threadId) {

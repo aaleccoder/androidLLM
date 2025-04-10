@@ -33,7 +33,7 @@ export function PasswordInput({ label, value, onChangeText }: PasswordInputProps
             label={label}
             placeholder={`Enter ${label.toLowerCase()}`}
             secureTextEntry
-            style={{ marginBottom: 16 }}
+            className="mb-4"
             theme={theme}
             value={value}
             onChangeText={onChangeText}

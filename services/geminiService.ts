@@ -11,10 +11,8 @@
 import { GoogleGenerativeAI, GenerativeModel, ChatSession } from '@google/generative-ai';
 import { useData } from '../context/dataContext';
 
-// Default system prompt to establish assistant behavior
-const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant for Android development. 
-You provide accurate, relevant information and code examples when asked.
-Respond in markdown format when appropriate.`;
+// Default system prompt is empty unless user sets a custom one
+export const DEFAULT_SYSTEM_PROMPT = '';
 
 // History window size for context management
 const HISTORY_WINDOW_SIZE = 10;
@@ -56,6 +54,8 @@ class ChatContextManager {
   }
 }
 
+export type GeminiModel = 'gemini-2.0-flash' | 'gemini-1.5-pro' | 'gemini-2.5-pro';
+
 /**
  * GeminiService class for handling all interactions with Gemini API
  */
@@ -64,9 +64,13 @@ export class GeminiService {
   private contextManager: ChatContextManager;
   private chatSession: ChatSession | null = null;
   private apiKey: string = '';
+  private isCancelled: boolean = false;
+  private currentModel: GeminiModel = 'gemini-1.5-pro';
+  private customPrompt: string | undefined;
   
-  constructor(modelName: string = 'gemini-pro') {
+  constructor(modelName: GeminiModel = 'gemini-1.5-pro') {
     this.contextManager = new ChatContextManager();
+    this.currentModel = modelName;
     this.initialize(modelName);
   }
   
@@ -77,6 +81,27 @@ export class GeminiService {
   private initialize(modelName: string): void {
     // The actual initialization of the model happens in initializeWithApiKey
     // which is called when the API key is set
+  }
+
+  /**
+   * Change the current model and reinitialize the chat session
+   */
+  async changeModel(modelName: GeminiModel): Promise<void> {
+    if (this.currentModel === modelName) return;
+    
+    this.currentModel = modelName;
+    if (this.apiKey) {
+      const genAI = new GoogleGenerativeAI(this.apiKey);
+      this.model = genAI.getGenerativeModel({ model: modelName });
+      await this.initializeChat();
+    }
+  }
+
+  /**
+   * Get the current model name
+   */
+  getCurrentModel(): GeminiModel {
+    return this.currentModel;
   }
 
   /**
@@ -92,7 +117,7 @@ export class GeminiService {
     if (apiKey) {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        this.model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        this.model = genAI.getGenerativeModel({ model: this.currentModel });
         this.initializeChat();
       } catch (error) {
         console.error('Failed to initialize Gemini API with provided key:', error);
@@ -113,6 +138,17 @@ export class GeminiService {
   }
   
   /**
+   * Set a custom system prompt
+   */
+  setCustomPrompt(prompt: string | undefined): void {
+    if (this.customPrompt === prompt) return;
+    this.customPrompt = prompt;
+    if (this.model) {
+      this.initializeChat();
+    }
+  }
+
+  /**
    * Initialize a new chat session with the system prompt
    */
   private async initializeChat(): Promise<void> {
@@ -121,16 +157,20 @@ export class GeminiService {
         throw new Error('Model not initialized. API key might not be set.');
       }
       
+      const systemPrompt = this.customPrompt || DEFAULT_SYSTEM_PROMPT;
+      
       this.chatSession = this.model.startChat({
         history: [{
           role: 'user',
-          parts: [{ text: DEFAULT_SYSTEM_PROMPT }]
+          parts: [{ text: systemPrompt }]
         }],
         generationConfig: {
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 1000,
+          candidateCount: 1,
+          stopSequences: ["Human:", "Assistant:"],
         },
       });
     } catch (error) {
@@ -140,11 +180,20 @@ export class GeminiService {
   }
   
   /**
-   * Send a message to the Gemini API and get a response
+   * Cancel the current generation
+   */
+  cancelGeneration(): void {
+    this.isCancelled = true;
+  }
+
+  /**
+   * Send a message to the Gemini API and get a streaming response
    * Implements chain of thought reasoning by allowing the model to "think"
    * before providing a final answer
    */
-  async sendMessage(message: string): Promise<string> {
+  async sendMessage(message: string, onPartialResponse?: (text: string) => void): Promise<string> {
+    this.isCancelled = false;
+    
     if (!this.model) {
       return "API key not set. Please set your Gemini API key in the settings.";
     }
@@ -161,28 +210,50 @@ export class GeminiService {
       // Add the user message to context
       this.contextManager.addMessage('user', message);
       
-      // Chain of thought: First ask the model to reason about the response
-      const thinkingPrompt = `Based on the user query: "${message}", think through the appropriate response step by step before answering.`;
-      
-      // Get the reasoning response (not shown to user)
-      const reasoningResponse = await this.model.generateContent([{ text: thinkingPrompt }]);
-      const reasoning = reasoningResponse.response.text();
-      
-      // Use the reasoning to generate the final response
-      const finalPrompt = `Based on your reasoning: ${reasoning}\n\nNow provide a concise and helpful response to the user's query: "${message}"`;
-      
       // Get the final response using the chat session to maintain context
       if (!this.chatSession) {
         throw new Error('Chat session not initialized');
       }
       
-      const result = await this.chatSession.sendMessage([{ text: finalPrompt }]);
-      const response = result.response.text();
-      
-      // Add the response to context
-      this.contextManager.addMessage('model', response);
-      
-      return response;
+      try {
+        // Send message and get response
+        const result = await this.chatSession.sendMessage([{ text: message }]);
+        const fullResponse = result.response.text();
+        let currentResponse = '';
+        
+        // Simulate streaming by sending partial responses
+        if (onPartialResponse) {
+          const words = fullResponse.split(' ');
+          
+          // Send partial responses word by word with a small delay
+          for (const word of words) {
+            if (this.isCancelled) {
+              // If cancelled, add what we have so far to context and return
+              const finalResponse = currentResponse.trim() + ' [Generation stopped]';
+              this.contextManager.addMessage('model', finalResponse);
+              return finalResponse;
+            }
+            
+            currentResponse += word + ' ';
+            onPartialResponse(currentResponse.trim());
+            // Small delay to simulate typing
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        }
+        
+        // Only add to context and return full response if not cancelled
+        if (!this.isCancelled) {
+          this.contextManager.addMessage('model', fullResponse);
+          return fullResponse;
+        }
+        
+        const stoppedResponse = currentResponse.trim() + ' [Generation stopped]';
+        this.contextManager.addMessage('model', stoppedResponse);
+        return stoppedResponse;
+      } catch (error) {
+        console.error('Error processing response:', error);
+        throw error;
+      }
     } catch (error) {
       console.error('Error generating response:', error);
       return "I'm sorry, I encountered an error processing your request. Please try again.";
@@ -197,37 +268,6 @@ export class GeminiService {
     this.chatSession = null;
     if (this.model) {
       this.initializeChat();
-    }
-  }
-  
-  /**
-   * Predict what the user might ask next based on the conversation history
-   */
-  async predictNextQuery(): Promise<string> {
-    if (!this.model) {
-      return '';
-    }
-    
-    if (!this.chatSession) {
-      try {
-        await this.initializeChat();
-      } catch (error) {
-        return '';
-      }
-    }
-    
-    try {
-      const history = this.contextManager.getHistory();
-      if (history.length < 2) {
-        return '';
-      }
-      
-      const predictionPrompt = `Based on the conversation history, predict what the user might ask next. Provide just one likely question.`;
-      const result = await this.model.generateContent([{ text: predictionPrompt }]);
-      return result.response.text();
-    } catch (error) {
-      console.error('Error predicting next query:', error);
-      return '';
     }
   }
 }
