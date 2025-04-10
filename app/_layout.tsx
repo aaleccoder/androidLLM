@@ -41,7 +41,9 @@ function SettingsContent({
       apiKeys: {
         gemini: geminiKey.trim(),
         groq: groqKey.trim()
-      }
+      },
+      // Make sure chatThreads is always an array
+      chatThreads: data?.chatThreads || []
     };
     
     try {
@@ -214,67 +216,69 @@ export default function RootLayout() {
   return (
     <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode) }}>
       <DataProvider>
-        <PaperProvider theme={theme}>
-          <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <Stack
-              screenOptions={{
-                headerStyle: { backgroundColor: theme.colors.surface },
-                headerTintColor: theme.colors.onSurface,
-                headerTitleStyle: { fontFamily: 'Inter_400Regular' },
-                headerShadowVisible: true,
-              }}
-            >
-              <Stack.Screen
-                name="index"
-                options={{
-                  title: "ChatLLM",
-                  headerRight: () => (
-                    <IndexHeaderRight
-                      isDarkMode={isDarkMode}
-                      setIsDarkMode={setIsDarkMode}
-                      theme={theme}
-                    />
-                  ),
-                  headerShown: true,
-                  headerBackVisible: false,
-                  headerLeft: () => null,
-                  gestureEnabled: false,
-                  animation: "none",
-                  headerBackButtonMenuEnabled: false,
+        <AuthProvider>
+          <PaperProvider theme={theme}>
+            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+              <Stack
+                screenOptions={{
+                  headerStyle: { backgroundColor: theme.colors.surface },
+                  headerTintColor: theme.colors.onSurface,
+                  headerTitleStyle: { fontFamily: 'Inter_400Regular' },
+                  headerShadowVisible: true,
                 }}
-              />
-              <Stack.Screen
-                name="ui/chat"
-                options={{
-                  title: "ChatLLM",
-                  headerShown: true,
-                  headerBackVisible: false,
-                  headerRight: () => (
-                    <HeaderRight
-                      isDarkMode={isDarkMode}
-                      setIsDarkMode={setIsDarkMode}
-                      setShowSettings={setShowSettings}
-                      theme={theme}
-                    />
-                  ),
-                  headerLeft: () => null,
-                  gestureEnabled: false,
-                  animation: "none",
-                  headerBackButtonMenuEnabled: false,
-                }}
-              />
-            </Stack>
-            <Portal>
-              {showSettings && (
-                <SettingsContent
-                  isDarkMode={isDarkMode}
-                  setIsDarkMode={setIsDarkMode}
-                  setShowSettings={setShowSettings}
+              >
+                <Stack.Screen
+                  name="index"
+                  options={{
+                    title: "ChatLLM",
+                    headerRight: () => (
+                      <IndexHeaderRight
+                        isDarkMode={isDarkMode}
+                        setIsDarkMode={setIsDarkMode}
+                        theme={theme}
+                      />
+                    ),
+                    headerShown: true,
+                    headerBackVisible: false,
+                    headerLeft: () => null,
+                    gestureEnabled: false,
+                    animation: "none",
+                    headerBackButtonMenuEnabled: false,
+                  }}
                 />
-              )}
-            </Portal>
-          </View>
-        </PaperProvider>
+                <Stack.Screen
+                  name="ui/chat"
+                  options={{
+                    title: "ChatLLM",
+                    headerShown: true,
+                    headerBackVisible: false,
+                    headerRight: () => (
+                      <HeaderRight
+                        isDarkMode={isDarkMode}
+                        setIsDarkMode={setIsDarkMode}
+                        setShowSettings={setShowSettings}
+                        theme={theme}
+                      />
+                    ),
+                    headerLeft: () => null,
+                    gestureEnabled: false,
+                    animation: "none",
+                    headerBackButtonMenuEnabled: false,
+                  }}
+                />
+              </Stack>
+              <Portal>
+                {showSettings && (
+                  <SettingsContent
+                    isDarkMode={isDarkMode}
+                    setIsDarkMode={setIsDarkMode}
+                    setShowSettings={setShowSettings}
+                  />
+                )}
+              </Portal>
+            </View>
+          </PaperProvider>
+        </AuthProvider>
       </DataProvider>
     </ThemeContext.Provider>
   );

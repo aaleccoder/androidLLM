@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Text } from 'react-nati
 import { Surface, IconButton, Modal, Portal, Button, Divider } from 'react-native-paper';
 import { useTheme } from '../context/themeContext';
 import { ChatThread, useData } from '../context/dataContext';
+import { useAuth } from '../hooks/useAuth';
 import * as Haptics from 'expo-haptics';
 
 interface ChatSidebarProps {
@@ -24,8 +25,8 @@ export const ChatSidebar = ({
 }: ChatSidebarProps) => {
   const { theme, isDarkMode } = useTheme();
   const { data, deleteChatThread } = useData();
+  const { getCurrentPassword } = useAuth();
   const [deleteConfirmThreadId, setDeleteConfirmThreadId] = useState<string | null>(null);
-  const [password, setPassword] = useState(''); // Normally you'd get this from a secure context
   
   // Get chat threads sorted by most recent update
   const chatThreads = data?.chatThreads 
@@ -53,10 +54,13 @@ export const ChatSidebar = ({
     if (!deleteConfirmThreadId) return;
     
     try {
-      // In a real implementation, you would get the password securely
-      // For now, we'll use a temporary solution
-      const tempPassword = 'temporaryPassword'; // This should come from auth context
-      await deleteChatThread(deleteConfirmThreadId, tempPassword);
+      const password = getCurrentPassword();
+      if (!password) {
+        console.error('Cannot delete thread: No password available');
+        return;
+      }
+      
+      await deleteChatThread(deleteConfirmThreadId, password);
       setDeleteConfirmThreadId(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
