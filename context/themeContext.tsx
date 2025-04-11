@@ -3,25 +3,33 @@ import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
 import { useColorScheme } from 'react-native';
 
 // Gemini-inspired colors
-const geminiColors = {
+const chatGPTColors = {
   light: {
-    primary: '#1a73e8', // Google blue
-    background: '#FFFFFF',
-    surface: '#FFFFFF',
-    botBubble: '#F0F0F0',
+    primary: '#10a37f',
+    background: '#F8F9FA',
+    surface: '#F1F3F5',
+    userBubble: '#10a37f',     // Use primary color for user bubbles in light mode
+    assistantBubble: '#FFFFFF',
+    text: '#1F2937',          // Darker text for better contrast
+    accent: '#10a37f',        // Match primary color
+    onSurface: '#1F2937',     // Text color on surfaces
   },
   dark: {
-    primary: '#8ab4f8', // Google blue for dark mode
-    background: '#0F0F0F',
-    surface: '#1F1F1F',
-    botBubble: '#303030',
+    primary: '#0B8161',
+    background: '#121416',
+    surface: '#212529',
+    userBubble: '#343541',
+    assistantBubble: '#444654',
+    text: '#E9ECEF',
+    accent: '#10a37f',
+    onSurface: '#E9ECEF',     // Light text for dark surfaces
   }
 };
 
 // Create theme based on the isDarkMode flag
 export const createTheme = (isDarkMode: boolean) => {
   const baseTheme = isDarkMode ? MD3DarkTheme : MD3LightTheme;
-  const colors = isDarkMode ? geminiColors.dark : geminiColors.light;
+  const colors = isDarkMode ? chatGPTColors.dark : chatGPTColors.light;
   
   return {
     ...baseTheme,
@@ -32,7 +40,11 @@ export const createTheme = (isDarkMode: boolean) => {
       primary: colors.primary,
       background: colors.background,
       surface: colors.surface,
-      botBubble: colors.botBubble,
+      userBubble: colors.userBubble,
+      assistantBubble: colors.assistantBubble,
+      text: colors.text,
+      accent: colors.accent,
+      onSurface: colors.onSurface,
     }
   };
 };

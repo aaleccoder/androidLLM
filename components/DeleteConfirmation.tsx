@@ -5,16 +5,23 @@
  * with clearly marked actions and warning text
  */
 import React from 'react';
-import { View } from 'react-native';
-import { Button, Text, Icon } from 'react-native-paper';
+import { AlertTriangle, Trash } from 'lucide-react-native';
 import { useTheme } from '../context/themeContext';
+import {
+  VStack,
+  HStack,
+  Button,
+  ButtonText,
+  Text,
+  Box
+} from '@gluestack-ui/themed';
 
 /**
  * Props for the DeleteConfirmation component
  */
 interface DeleteConfirmationProps {
-    onDelete: () => void;
-    onCancel: () => void;
+  onDelete: () => void;
+  onCancel: () => void;
 }
 
 /**
@@ -24,41 +31,33 @@ interface DeleteConfirmationProps {
  * @returns {JSX.Element} Delete confirmation component
  */
 export function DeleteConfirmation({ onDelete, onCancel }: DeleteConfirmationProps) {
-    const { theme } = useTheme();
+  const { isDarkMode } = useTheme();
 
-    return (
-        <View className="gap-2 mt-2">
-            <View className="flex-row items-center justify-center mb-3">
-                <Icon
-                    source="alert-circle"
-                    size={24}
-                    color={theme.colors.error}
-                />
-                <Text 
-                    className="ml-2 text-center font-medium"
-                    style={{ color: theme.colors.error }}
-                >
-                    This will delete all your data permanently!
-                </Text>
-            </View>
-            
-            <Button 
-                mode="contained"
-                onPress={onDelete}
-                className="mb-2"
-                buttonColor={theme.colors.error}
-                icon="delete"
-            >
-                Yes, Delete Everything
-            </Button>
-            
-            <Button 
-                mode="outlined"
-                onPress={onCancel}
-                className="mb-1"
-            >
-                Cancel
-            </Button>
-        </View>
-    );
+  return (
+    <VStack className="gap-2 mt-2">
+      <HStack className="items-center justify-center mb-3">
+        <AlertTriangle size={24} color="#ef4444" />
+        <Text className={`ml-2 text-center font-medium ${isDarkMode ? 'text-error-500' : 'text-error-600'}`}>
+          This will delete all your data permanently!
+        </Text>
+      </HStack>
+      
+      <Button 
+        action="negative"
+        className="mb-2"
+        onPress={onDelete}
+      >
+        <Trash size={16} color="white" style={{ marginRight: 8 }} />
+        <ButtonText>Yes, Delete Everything</ButtonText>
+      </Button>
+      
+      <Button 
+        variant="outline"
+        className="mb-1"
+        onPress={onCancel}
+      >
+        <ButtonText>Cancel</ButtonText>
+      </Button>
+    </VStack>
+  );
 }

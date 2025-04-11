@@ -4,15 +4,15 @@ import { MD3Theme } from 'react-native-paper';
 export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
   // Base styles
   body: {
-    color: theme.dark ? '#E1E1E1' : '#1A1A1A',
+    color: theme.dark ? '#F3F4F6' : '#1F2937',
     fontSize: 16,
     lineHeight: 24,
   },
   
   // Code elements
   code_block: {
-    backgroundColor: '#000000', // Set background to black
-    color: '#FFFFFF', // Set text color to white
+    backgroundColor: theme.dark ? '#111827' : '#F1F3F5',
+    color: theme.dark ? '#F3F4F6' : '#1F2937',
     padding: 16,
     borderRadius: 6,
     fontFamily: 'monospace',
@@ -20,8 +20,8 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
     width: '100%',
   },
   code_inline: {
-    backgroundColor: theme.dark ? '#2D2D2D' : '#F1F1F1',
-    color: theme.dark ? '#E1E1E1' : '#1A1A1A',
+    backgroundColor: theme.dark ? '#1F2937' : '#E9ECEF',
+    color: theme.dark ? '#F3F4F6' : '#1F2937',
     padding: 4,
     paddingHorizontal: 6,
     borderRadius: 4,
@@ -30,7 +30,7 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
   
   // Links
   link: {
-    color: theme.colors.primary,
+    color: '#6366F1',
     textDecorationLine: 'underline',
   },
   
@@ -40,7 +40,7 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
     fontWeight: '600',
-    color: theme.dark ? '#E1E1E1' : '#1A1A1A',
+    color: theme.dark ? '#F3F4F6' : '#111827',
     lineHeight: 32,
   },
   heading2: {
@@ -48,7 +48,7 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
     fontWeight: '600',
-    color: theme.dark ? '#E1E1E1' : '#1A1A1A',
+    color: theme.dark ? '#F3F4F6' : '#111827',
     lineHeight: 28,
   },
   heading3: {
@@ -56,7 +56,7 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
     fontWeight: '600',
-    color: theme.dark ? '#E1E1E1' : '#1A1A1A',
+    color: theme.dark ? '#F3F4F6' : '#111827',
     lineHeight: 26,
   },
   
@@ -75,11 +75,11 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
   
   // Blockquotes
   blockquote: {
-    backgroundColor: theme.dark ? '#2D2D2D' : '#F1F1F1',
+    backgroundColor: theme.dark ? '#1F2937' : '#F1F3F5',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderLeftWidth: 4,
-    borderLeftColor: theme.dark ? '#4A4A4A' : '#DCDCDC',
+    borderLeftColor: theme.dark ? '#374151' : '#D1D5DB',
     borderRadius: 4,
     marginVertical: 12,
   },
@@ -92,7 +92,7 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
 
   // Horizontal rule
   hr: {
-    backgroundColor: theme.dark ? '#404040' : '#E0E0E0',
+    backgroundColor: theme.dark ? '#374151' : '#E5E7EB',
     height: 1,
     marginVertical: 20,
   },
@@ -100,21 +100,22 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
   // Table styles
   table: {
     borderWidth: 1,
-    borderColor: theme.dark ? '#404040' : '#E0E0E0',
+    borderColor: theme.dark ? '#374151' : '#E5E7EB',
     borderRadius: 6,
     marginVertical: 12,
     width: '100%',
     overflow: 'hidden',
   },
   thead: {
-    backgroundColor: theme.dark ? '#2D2D2D' : '#F7F7F8',
+    backgroundColor: theme.dark ? '#1F2937' : '#F1F3F5',
   },
   th: {
     padding: 12,
     fontWeight: '600',
     borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderColor: theme.dark ? '#404040' : '#E0E0E0',
+    borderColor: theme.dark ? '#374151' : '#E5E7EB',
+    color: theme.dark ? '#F3F4F6' : '#111827',
   },
   tr: {
     flexDirection: 'row',
@@ -123,6 +124,7 @@ export const createMarkdownStyles = (theme: MD3Theme) => StyleSheet.create({
     padding: 12,
     borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderColor: theme.dark ? '#404040' : '#E0E0E0',
+    borderColor: theme.dark ? '#374151' : '#E5E7EB',
+    color: theme.dark ? '#F3F4F6' : '#111827',
   }
 });

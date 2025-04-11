@@ -1,12 +1,10 @@
 import { Stack } from "expo-router";
 import { useState, useMemo, useEffect } from "react";
-import { Portal, Modal, Provider as PaperProvider, Text, Divider, List, Switch, TextInput, Surface, Button } from "react-native-paper";
-import { View, StyleSheet, ScrollView } from "react-native";
 import { ThemeContext, createTheme } from '../context/themeContext';
 import { DataProvider, useData } from '../context/dataContext';
 import { useAuth, AuthProvider } from '../hooks/useAuth';
 import { useTheme } from '../context/themeContext';
-import { geminiService, DEFAULT_SYSTEM_PROMPT } from '../services/geminiService';
+import { geminiService } from '../services/geminiService';
 import "./globals.css";
 import { useFonts } from "expo-font";
 import { Inter_400Regular } from "@expo-google-fonts/inter";
@@ -14,6 +12,41 @@ import * as SplashScreen from "expo-splash-screen";
 import { HeaderRight } from "../components/HeaderRight";
 import { IndexHeaderRight } from "@/components/HeaderLogin";
 import { globalEventEmitter } from "./ui/chat";
+
+// Import Lucide icons
+import { Eye, EyeOff, Save } from 'lucide-react-native';
+
+// Import GlueStack UI components
+import {
+  GluestackUIProvider,
+  Box,
+  Text,
+  Divider,
+  Modal,
+  ModalBackdrop,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Switch,
+  Input,
+  InputField,
+  InputIcon,
+  InputSlot,
+  VStack,
+  HStack,
+  Button,
+  ButtonText,
+  ButtonIcon,
+  Heading,
+  ScrollView as GScrollView,
+  FormControl,
+  FormControlLabel,
+  FormControlLabelText,
+  FormControlHelper,
+  FormControlHelperText,
+} from "@gluestack-ui/themed";
+import { config } from "../utils/config/gluestack-ui.config";
 
 function SettingsContent({ 
   isDarkMode, 
@@ -34,6 +67,7 @@ function SettingsContent({
   const [showGroqKey, setShowGroqKey] = useState(false);
   const [password, setPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSaveSettings = async () => {
     if (!isAuthenticated) return;
@@ -77,144 +111,161 @@ function SettingsContent({
   }, [geminiKey, groqKey, customPrompt]);
 
   return (
-    <Modal
-      visible={true}
-      onDismiss={() => setShowSettings(false)}
-      contentContainerStyle={[
-        styles.modal,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-        }
-      ]}
-    >
-      <Text 
-        variant="titleLarge" 
-        style={[styles.modalTitle, { color: theme.colors.onSurface }]}
-      >
-        Settings
-      </Text>
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        <List.Section>
-          <Surface style={[styles.section, { backgroundColor: theme.colors.elevation.level1 }]} elevation={1}>
-            <List.Item
-              title="Dark Mode"
-              titleStyle={{ color: theme.colors.onSurface }}
-              description="Toggle between light and dark theme"
-              descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
-              left={props => <List.Icon {...props} icon={isDarkMode ? "moon-waxing-crescent" : "white-balance-sunny"} color={theme.colors.primary} />}
-              right={props => <Switch value={isDarkMode} onValueChange={setIsDarkMode} color={theme.colors.primary} />}
-            />
-          </Surface>
+    <Modal isOpen={true} onClose={() => setShowSettings(false)}>
+      <ModalBackdrop />
+      <ModalContent className={`m-4 rounded-3xl ${isDarkMode ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
+        <ModalHeader>
+          <Heading className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}>Settings</Heading>
+        </ModalHeader>
+        <ModalBody>
+          <GScrollView contentContainerClassName="gap-4" showsVerticalScrollIndicator={false}>
+            <Box className={`rounded-2xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4`}>
+              <HStack className="justify-between items-center">
+                <VStack className="flex-1">
+                  <Text className={`text-lg font-medium ${isDarkMode ? 'text-neutral-50' : 'text-neutral-900'}`}>Dark Mode</Text>
+                  <Text className={isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}>Toggle between light and dark theme</Text>
+                </VStack>
+                <Switch
+                  value={isDarkMode}
+                  onValueChange={setIsDarkMode}
+                  trackColor={{ false: isDarkMode ? "$neutral700" : "$neutral300", true: "$primary900" }}
+                  thumbColor={isDarkMode ? "$primary500" : "$neutral100"}
+                />
+              </HStack>
+            </Box>
 
-          {isAuthenticated && (
-            <>
-              <List.Subheader style={[styles.subheader, { color: theme.colors.primary }]}>
-                API Keys
-              </List.Subheader>
-              <Surface style={[styles.section, { backgroundColor: theme.colors.elevation.level1 }]} elevation={1}>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    mode="outlined"
-                    label="Gemini API Key"
-                    value={geminiKey}
-                    onChangeText={setGeminiKey}
-                    secureTextEntry={!showGeminiKey}
-                    right={
-                      <TextInput.Icon
-                        icon={showGeminiKey ? "eye-off" : "eye"}
-                        onPress={() => setShowGeminiKey(!showGeminiKey)}
+            {isAuthenticated && (
+              <>
+                <Heading size="sm" className="text-primary-500 mt-2">API Keys</Heading>
+                <Box className={`rounded-2xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4`}>
+                  <FormControl className="mb-4">
+                    <FormControlLabel>
+                      <FormControlLabelText className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}>
+                        Gemini API Key
+                      </FormControlLabelText>
+                    </FormControlLabel>
+                    <Input className="rounded-xl">
+                      <InputField
+                        value={geminiKey}
+                        onChangeText={setGeminiKey}
+                        secureTextEntry={!showGeminiKey}
+                        className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}
                       />
-                    }
-                    style={styles.input}
-                    outlineStyle={styles.inputOutline}
-                    theme={theme}
-                  />
-                  <TextInput
-                    mode="outlined"
-                    label="Groq API Key"
-                    value={groqKey}
-                    onChangeText={setGroqKey}
-                    secureTextEntry={!showGroqKey}
-                    right={
-                      <TextInput.Icon
-                        icon={showGroqKey ? "eye-off" : "eye"}
-                        onPress={() => setShowGroqKey(!showGroqKey)}
+                      <InputSlot onPress={() => setShowGeminiKey(!showGeminiKey)}>
+                        {showGeminiKey ? 
+                          <EyeOff size={20} color={isDarkMode ? "#818cf8" : "#6366f1"} /> : 
+                          <Eye size={20} color={isDarkMode ? "#818cf8" : "#6366f1"} />
+                        }
+                      </InputSlot>
+                    </Input>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}>
+                        Groq API Key
+                      </FormControlLabelText>
+                    </FormControlLabel>
+                    <Input className="rounded-xl">
+                      <InputField
+                        value={groqKey}
+                        onChangeText={setGroqKey}
+                        secureTextEntry={!showGroqKey}
+                        className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}
                       />
-                    }
-                    style={styles.input}
-                    outlineStyle={styles.inputOutline}
-                    theme={theme}
-                  />
-                </View>
-              </Surface>
+                      <InputSlot onPress={() => setShowGroqKey(!showGroqKey)}>
+                        {showGroqKey ? 
+                          <EyeOff size={20} color={isDarkMode ? "#818cf8" : "#6366f1"} /> : 
+                          <Eye size={20} color={isDarkMode ? "#818cf8" : "#6366f1"} />
+                        }
+                      </InputSlot>
+                    </Input>
+                  </FormControl>
+                </Box>
 
-              <List.Subheader style={[styles.subheader, { color: theme.colors.primary }]}>
-                Assistant Settings
-              </List.Subheader>
-              <Surface style={[styles.section, { backgroundColor: theme.colors.elevation.level1 }]} elevation={1}>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    mode="outlined"
-                    label="Custom System Prompt"
-                    value={customPrompt}
-                    onChangeText={setCustomPrompt}
-                    placeholder="Optional: Enter a system prompt to define the assistant's behavior"
-                    multiline
-                    numberOfLines={4}
-                    style={styles.input}
-                    outlineStyle={styles.inputOutline}
-                    theme={theme}
-                  />
-                  <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
-                    The assistant will use this prompt to understand its role and how to respond. Leave empty for no system prompt.
-                  </Text>
-                </View>
-              </Surface>
+                <Heading size="sm" className="text-primary-500 mt-2">Assistant Settings</Heading>
+                <Box className={`rounded-2xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4`}>
+                  <FormControl>
+                    <FormControlLabel>
+                      <FormControlLabelText className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}>
+                        Custom System Prompt
+                      </FormControlLabelText>
+                    </FormControlLabel>
+                    <Input className="rounded-xl">
+                      <InputField
+                        value={customPrompt}
+                        onChangeText={setCustomPrompt}
+                        placeholder="Optional: Enter a system prompt to define the assistant's behavior"
+                        placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
+                        multiline
+                        numberOfLines={4}
+                        className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}
+                      />
+                    </Input>
+                    <FormControlHelper>
+                      <FormControlHelperText className={isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}>
+                        The assistant will use this prompt to understand its role and how to respond. Leave empty for no system prompt.
+                      </FormControlHelperText>
+                    </FormControlHelper>
+                  </FormControl>
+                </Box>
 
-              {showPasswordInput && (
-                <Surface style={[styles.section, { backgroundColor: theme.colors.elevation.level1 }]} elevation={1}>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      mode="outlined"
-                      label="Enter password to save changes"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                      right={<TextInput.Icon icon="check" onPress={handleSaveSettings} />}
-                      style={styles.input}
-                      outlineStyle={styles.inputOutline}
-                      theme={theme}
-                    />
-                  </View>
-                </Surface>
-              )}
+                {showPasswordInput && (
+                  <Box className={`rounded-2xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4 mt-4`}>
+                    <FormControl>
+                      <FormControlLabel>
+                        <FormControlLabelText className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}>
+                          Enter password to save changes
+                        </FormControlLabelText>
+                      </FormControlLabel>
+                      <Input className="rounded-xl">
+                        <InputField
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry={!showPassword}
+                          className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}
+                        />
+                        <InputSlot onPress={() => setShowPassword(!showPassword)}>
+                          {showPassword ? 
+                            <EyeOff size={20} color={isDarkMode ? "#9CA3AF" : "#6B7280"} /> : 
+                            <Eye size={20} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+                          }
+                        </InputSlot>
+                      </Input>
+                    </FormControl>
+                  </Box>
+                )}
 
-              <Button 
-                mode="contained" 
-                onPress={handleSaveSettings}
-                style={styles.saveButton}
-                icon="content-save"
-              >
-                Save Settings
-              </Button>
-            </>
-          )}
-          
-          <Surface style={[styles.section, { backgroundColor: theme.colors.elevation.level1 }]} elevation={1}>
-            <List.Item
-              title="About ChatLLM"
-              titleStyle={{ color: theme.colors.onSurface }}
-              description="Version 1.0.0"
-              descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
-              left={props => <List.Icon {...props} icon="information-outline" color={theme.colors.primary} />}
-            />
-          </Surface>
-        </List.Section>
-      </ScrollView>
+                <Button
+                  className="mt-4"
+                  onPress={handleSaveSettings}
+                >
+                  <Save size={18} color="white" style={{ marginRight: 8 }} />
+                  <ButtonText>Save Settings</ButtonText>
+                </Button>
+              </>
+            )}
+            
+            <Box className={`rounded-2xl ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'} p-4 mt-4`}>
+              <HStack className="justify-between items-center">
+                <VStack className="flex-1">
+                  <Text className={`text-lg font-medium ${isDarkMode ? 'text-neutral-50' : 'text-neutral-900'}`}>About ChatLLM</Text>
+                  <Text className={isDarkMode ? 'text-neutral-400' : 'text-neutral-600'}>Version 1.0.0</Text>
+                </VStack>
+              </HStack>
+            </Box>
+          </GScrollView>
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            size="sm" 
+            variant="outline"
+            onPress={() => setShowSettings(false)}
+          >
+            <ButtonText>Close</ButtonText>
+          </Button>
+        </ModalFooter>
+      </ModalContent>
     </Modal>
   );
 }
@@ -252,17 +303,19 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode) }}>
-      <DataProvider>
-        <AuthProvider>
-          <PaperProvider theme={theme}>
-            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <GluestackUIProvider config={config} colorMode={isDarkMode ? "dark" : "light"}>
+      <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode) }}>
+        <DataProvider>
+          <AuthProvider>
+            <Box className={`flex-1 ${isDarkMode ? 'bg-neutral-900' : 'bg-neutral-50'}`}>
               <Stack
                 screenOptions={{
-                  headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.onSurface,
+                  headerStyle: {
+                    backgroundColor: isDarkMode ? theme.colors.surface : theme.colors.background,
+                  },
+                  headerTintColor: isDarkMode ? theme.colors.text : theme.colors.primary,
                   headerTitleStyle: { fontFamily: 'Inter_400Regular' },
-                  headerShadowVisible: true,
+                  headerShadowVisible: false,
                 }}
               >
                 <Stack.Screen
@@ -305,68 +358,17 @@ export default function RootLayout() {
                   }}
                 />
               </Stack>
-              <Portal>
-                {showSettings && (
-                  <SettingsContent
-                    isDarkMode={isDarkMode}
-                    setIsDarkMode={setIsDarkMode}
-                    setShowSettings={setShowSettings}
-                  />
-                )}
-              </Portal>
-            </View>
-          </PaperProvider>
-        </AuthProvider>
-      </DataProvider>
-    </ThemeContext.Provider>
+              {showSettings && (
+                <SettingsContent
+                  isDarkMode={isDarkMode}
+                  setIsDarkMode={setIsDarkMode}
+                  setShowSettings={setShowSettings}
+                />
+              )}
+            </Box>
+          </AuthProvider>
+        </DataProvider>
+      </ThemeContext.Provider>
+    </GluestackUIProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  modal: {
-    margin: 20,
-    borderRadius: 12,
-    padding: 20,
-    backgroundColor: 'white',
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    marginBottom: 16,
-  },
-  scrollView: {
-    flexGrow: 0,
-  },
-  inputContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  inputOutline: {
-    borderRadius: 8,
-  },
-  divider: {
-    marginBottom: 16,
-  },
-  section: {
-    marginBottom: 16,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  subheader: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  saveButton: {
-    marginTop: 16,
-  },
-  helperText: {
-    fontSize: 12,
-    marginTop: 8,
-  },
-});

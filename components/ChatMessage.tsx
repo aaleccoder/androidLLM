@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
-import { Surface } from 'react-native-paper';
+import { Box } from '@gluestack-ui/themed';
 import { useTheme } from '../context/themeContext';
 import Markdown from 'react-native-markdown-display';
 import { createMarkdownStyles } from '@/utils/markdownStyles';
@@ -17,50 +16,62 @@ export const ChatMessage = ({ message, isUser = false, isStreaming = false }: Ch
   
   if (isUser) {
     return (
-      <View className="items-end my-1 mx-4 pb-0.5">
-        <Surface
-          className="max-w-[80%] px-4 py-2.5 rounded-message rounded-tr-sm bg-primary"
-          elevation={0}
+      <Box className="items-end my-1 mx-4 pb-0.5">
+        <Box
+          className={`max-w-[80%] px-4 py-2.5 rounded-message rounded-tr-sm ${
+            isDarkMode ? 'bg-accent-500' : 'bg-primary-600'
+          }`}
+          style={{ elevation: 1 }}
         >
-          <View className="flex-shrink">
+          <Box className="flex-shrink">
             <Markdown style={{
               body: {
                 ...markdownStyles.body,
-                color: theme.colors.onPrimary,
+                color: '#FFFFFF', // User messages always white for contrast
               }
             }}>
               {message}
             </Markdown>
-          </View>
-        </Surface>
-      </View>
+          </Box>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <Surface
+    <Box
       className={`w-full py-5 my-0.5 ${isDarkMode ? 'bg-neutral-900' : 'bg-neutral-50'}`}
-      elevation={0}
     >
-      <View className="px-4 max-w-[800px] w-full self-center">
+      <Box className="px-4 max-w-[800px] w-full self-center">
         <Markdown
-          style={markdownStyles}
+          style={{
+            ...markdownStyles,
+            body: {
+              ...markdownStyles.body,
+            },
+            code_block: {
+              ...markdownStyles.code_block,
+            },
+            code_inline: {
+              ...markdownStyles.code_inline,
+            },
+          }}
           rules={{
             code_block: (node, children, parent, styles) => (
-              <View key={node.key} className="overflow-hidden" style={markdownStyles.code_block}>
-                <Text className="text-white">
-                  {children}
-                </Text>
-              </View>
+              <Box key={node.key} className="overflow-hidden rounded-xl" style={styles}>
+                {children}
+              </Box>
             ),
           }}
         >
           {message}
         </Markdown>
         {isStreaming && (
-          <View className={`h-1 w-[100px] mt-2 rounded-sm self-center bg-primary`} />
+          <Box className={`h-1 w-[100px] mt-2 rounded-sm ${
+            isDarkMode ? 'bg-accent-500' : 'bg-primary-600'
+          }`} />
         )}
-      </View>
-    </Surface>
+      </Box>
+    </Box>
   );
 };

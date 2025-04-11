@@ -1,9 +1,27 @@
 import React, { useState, useCallback } from 'react';
-import { View, Keyboard, Text } from 'react-native';
-import { TextInput, IconButton, Surface, Menu } from 'react-native-paper';
+import { Keyboard } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import * as Haptics from 'expo-haptics';
 import { GeminiModel } from '../services/geminiService';
+
+// Import specific icons from lucide-react-native
+import { Send, X, Zap, Image } from "lucide-react-native";
+
+// Import GlueStack UI components
+import {
+  Box,
+  HStack,
+  VStack,
+  Input,
+  InputField,
+  Icon,
+  Menu,
+  MenuItem,
+  MenuItemLabel,
+  Text,
+  Pressable,
+  Button
+} from "@gluestack-ui/themed";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -21,7 +39,7 @@ export const ChatInput = ({
   onModelChange
 }: ChatInputProps) => {
   const [input, setInput] = useState("");
-  const { theme, isDarkMode } = useTheme();
+  const { isDarkMode, theme } = useTheme();
   const [showModelMenu, setShowModelMenu] = useState(false);
   
   const handleSend = useCallback(() => {
@@ -47,6 +65,10 @@ export const ChatInput = ({
   const hasInput = input.trim().length > 0;
 
   const getModelDisplayName = (model: GeminiModel) => {
+    if (!model) {
+      return 'Gemini 1.5 Pro'; // Default fallback value
+    }
+    
     switch (model) {
       case 'gemini-2.0-flash':
         return 'Gemini 2.0 Flash';
@@ -60,105 +82,110 @@ export const ChatInput = ({
   };
 
   return (
-    <Surface 
-      className={`p-2 border-t ${isDarkMode ? 'bg-neutral-900 border-white/5' : 'bg-white border-black/5'}`}
-      elevation={4}
+    <Box 
+      className={`p-4 border-t border-neutral-200 dark:border-neutral-800 ${
+        isDarkMode ? 'bg-neutral-900' : 'bg-neutral-50'
+      }`}
+      style={{ 
+        shadowColor: isDarkMode ? '#000' : '#000', 
+        shadowOffset: { width: 0, height: -2 }, 
+        shadowOpacity: isDarkMode ? 0.2 : 0.1, 
+        shadowRadius: 3, 
+        elevation: 3 
+      }}
     >
-      <View className="px-4 pb-2">
+      <VStack space="sm">
         <Menu
-          visible={showModelMenu}
-          onDismiss={() => setShowModelMenu(false)}
-          anchor={
-            <Surface
-              className={`flex-row items-center rounded-full ${isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'}`}
-              elevation={1}
+          trigger={({ ...triggerProps }) => (
+            <Pressable 
+              {...triggerProps} 
+              className={`self-start mb-1 ${
+                isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'
+              } rounded-full px-3 py-1`}
             >
-              <IconButton
-                icon="lightning-bolt"
-                size={16}
-                iconColor={theme.colors.primary}
-                className="m-0"
-                onPress={() => setShowModelMenu(true)}
-              />
-              <Text 
-                className={`text-sm -ml-1 pr-3 ${isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}`}
-                numberOfLines={1}
-              >
-                {getModelDisplayName(currentModel)}
-              </Text>
-            </Surface>
-          }
-        >
-          <Menu.Item 
-            onPress={() => handleModelChange('gemini-2.0-flash')}
-            title="Gemini 2.0 Flash"
-            leadingIcon="lightning-bolt"
-          />
-          <Menu.Item 
-            onPress={() => handleModelChange('gemini-1.5-pro')}
-            title="Gemini 1.5 Pro"
-            leadingIcon="rocket"
-          />
-          <Menu.Item 
-            onPress={() => handleModelChange('gemini-2.5-pro')}
-            title="Gemini 2.5 Pro"
-            leadingIcon="crown"
-          />
-        </Menu>
-      </View>
-      
-      <View className="flex-row items-center">
-        <Surface
-          className={`flex-1 flex-row items-center rounded-3xl min-h-12 px-1 ${
-            isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
-          }`}
-          elevation={0}
-        >
-          <TextInput
-            mode="flat"
-            className="flex-1 max-h-[120px] px-3 py-2 bg-transparent"
-            placeholder="Message Gemini..."
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={hasInput && !isGenerating ? handleSend : undefined}
-            blurOnSubmit={false}
-            multiline
-            maxLength={2000}
-            underlineColor="transparent"
-            activeUnderlineColor="transparent"
-            editable={!isGenerating}
-          />
-          
-          {isGenerating ? (
-            <IconButton
-              icon="stop-circle"
-              size={24}
-              iconColor={theme.colors.error}
-              className="m-1"
-              onPress={handleStop}
-            />
-          ) : hasInput ? (
-            <IconButton
-              icon="send"
-              size={24}
-              iconColor={theme.colors.primary}
-              className="m-1"
-              onPress={handleSend}
-            />
-          ) : (
-            <View className="flex-row">
-              <IconButton
-                icon="image"
-                size={24}
-                iconColor={theme.colors.onSurfaceVariant}
-                className="m-0.5"
-                onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
-              />
-            </View>
+              <HStack space="xs" alignItems="center">
+                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                <Text className={isDarkMode ? 'text-sm text-neutral-200' : 'text-sm text-neutral-800'}>
+                  {getModelDisplayName(currentModel)}
+                </Text>
+              </HStack>
+            </Pressable>
           )}
-        </Surface>
-      </View>
-    </Surface>
+        >
+          <MenuItem key="flash" onPress={() => handleModelChange('gemini-2.0-flash')}>
+            <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+            <MenuItemLabel>Gemini 2.0 Flash</MenuItemLabel>
+          </MenuItem>
+          <MenuItem key="pro15" onPress={() => handleModelChange('gemini-1.5-pro')}>
+            <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+            <MenuItemLabel>Gemini 1.5 Pro</MenuItemLabel>
+          </MenuItem>
+          <MenuItem key="pro25" onPress={() => handleModelChange('gemini-2.5-pro')}>
+            <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+            <MenuItemLabel>Gemini 2.5 Pro</MenuItemLabel>
+          </MenuItem>
+        </Menu>
+        
+        <HStack space="md" alignItems="center">
+          <Box 
+            className={`flex-1 flex-row items-center rounded-2xl px-2 ${
+              isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
+            }`}
+            style={{ minHeight: 48 }}
+          >
+            <Input
+              className="flex-1 max-h-[120px] px-2 py-2 bg-transparent border-0 rounded-2xl"
+              size="md"
+              isDisabled={isGenerating}
+            >
+              <InputField 
+                className={isDarkMode ? 'text-neutral-100' : 'text-neutral-800'}
+                placeholder="Message Gemini..."
+                placeholderTextColor={isDarkMode ? "#6B7280" : "#ADB5BD"}
+                value={input}
+                onChangeText={setInput}
+                multiline={true}
+                maxLength={2000}
+                blurOnSubmit={false}
+              />
+            </Input>
+            {isGenerating ? (
+              <Button
+                className="m-1"
+                size="md"
+                variant="solid"
+                bgColor="$error600"
+                borderRadius="$full"
+                onPress={handleStop}
+              >
+                <X size={20} color="#FFFFFF" />
+              </Button>
+            ) : hasInput ? (
+              <Button
+                className="m-1"
+                size="md"
+                variant="solid"
+                bgColor="$primary500"
+                borderRadius="$full"
+                onPress={handleSend}
+              >
+                <Send size={20} color={isDarkMode ? "#FFFFFF" : "#F8FAFC"} />
+              </Button>
+            ) : (
+              <Button
+                className="m-1"
+                size="md"
+                variant="solid"
+                bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
+                borderRadius="$full"
+                onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
+              >
+                <Image size={20} color={theme.colors.onSurface} />
+              </Button>
+            )}
+          </Box>
+        </HStack>
+      </VStack>
+    </Box>
   );
 };

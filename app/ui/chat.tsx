@@ -47,7 +47,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       isUser: false, 
-      text: "# Hello! How can I help you today?\n\nI'm ready to assist you with any questions or tasks you have.",
+      text: "",
       timestamp: Date.now()
     }
   ]);
@@ -408,103 +408,99 @@ export default function Chat() {
 
   return (
     <ProtectedRoute>
-      <View style={[
-        styles.container, 
-        { backgroundColor: isDarkMode ? '#0F0F0F' : '#FFFFFF' }
-      ]}>
+      <View style={{ flex: 1, backgroundColor: isDarkMode ? '#343541' : '#FAFAFA', margin: 0 }}>
         <StatusBar style={isDarkMode ? "light" : "dark"}/>
-        
-        <View style={styles.header}>
-          <IconButton
-            icon="menu"
-            size={24}
-            iconColor={theme.colors.primary}
-            onPress={toggleSidebar}
-            style={styles.menuButton}
-          />
-          <IconButton
-            icon="refresh"
-            size={24}
-            iconColor={theme.colors.primary}
-            onPress={resetChat}
-            style={styles.resetButton}
-          />
-        </View>
-        
-        <ChatSidebar
-          isVisible={showSidebar}
-          onClose={() => setShowSidebar(false)}
-          onNewChat={handleNewChat}
-          currentThreadId={currentThreadId}
-          onSelectThread={handleSelectThread}
-          enableEditing={editingEnabled}
-        />
-        
-        {!apiKeySet && (
-          <Surface 
-            style={[
-              styles.apiKeyWarningContainer,
-              { backgroundColor: isDarkMode ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 152, 0, 0.08)' }
-            ]} 
-            elevation={0}
-          >
-            <Text style={[styles.apiKeyWarningText, { color: theme.colors.onSurface }]}>
-              Gemini API key is not set. Please set your API key in the settings.
-            </Text>
-            <Button 
-              mode="contained"
-              onPress={openSettings}
-              style={styles.settingsButton}
-              buttonColor={theme.colors.primary}
-            >
-              Open Settings
-            </Button>
-          </Surface>
-        )}
-        
-        <ScrollView 
-          ref={scrollViewRef}
-          style={[
-            styles.messageList,
-            showSidebar && styles.messageListWithSidebar
-          ]}
-          contentContainerStyle={styles.messageListContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {messages.map((message, index) => (
-            <ChatMessage 
-              key={index}
-              message={message.text}
-              isUser={message.isUser}
-              isStreaming={message.isStreaming}
+        <View style={{ flex: 1, marginTop: 8 }}>
+          <View style={styles.header}>
+            <IconButton
+              icon="menu"
+              size={24}
+              iconColor={isDarkMode ? theme.colors.accent : theme.colors.primary}
+              onPress={toggleSidebar}
+              style={styles.menuButton}
             />
-          ))}
+            <IconButton
+              icon="refresh"
+              size={24}
+              iconColor={isDarkMode ? theme.colors.accent : theme.colors.primary}
+              onPress={resetChat}
+              style={styles.resetButton}
+            />
+          </View>
           
-          {isLoading && (
+          <ChatSidebar
+            isVisible={showSidebar}
+            onClose={() => setShowSidebar(false)}
+            onNewChat={handleNewChat}
+            currentThreadId={currentThreadId}
+            onSelectThread={handleSelectThread}
+            enableEditing={editingEnabled}
+          />
+          
+          {!apiKeySet && (
             <Surface 
               style={[
-                styles.loadingContainer,
-                { backgroundColor: isDarkMode ? '#1E1E1E' : '#F7F7F8' }
+                styles.apiKeyWarningContainer,
+                { backgroundColor: isDarkMode ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 152, 0, 0.08)' }
               ]} 
               elevation={0}
             >
-              <View style={styles.loadingContent}>
-                <ActivityIndicator 
-                  size="small" 
-                  color={theme.colors.primary} 
-                />
-              </View>
+              <Text style={[styles.apiKeyWarningText, { color: isDarkMode ? '#F3F4F6' : '#1F2937' }]}>
+                Gemini API key is not set. Please set your API key in the settings.
+              </Text>
+              <Button 
+                mode="contained"
+                onPress={openSettings}
+                style={styles.settingsButton}
+                buttonColor={theme.colors.accent}
+                textColor={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
+              >
+                Open Settings
+              </Button>
             </Surface>
           )}
-        </ScrollView>
-        
-        <ChatInput 
-          onSend={handleSend}
-          isGenerating={isGenerating}
-          onStopGeneration={handleStopGeneration}
-          currentModel={currentModel}
-          onModelChange={handleModelChange}
-        />
+          
+          <ScrollView 
+            ref={scrollViewRef}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 16 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {messages.map((message, index) => (
+              <ChatMessage 
+                key={index}
+                message={message.text}
+                isUser={message.isUser}
+                isStreaming={message.isStreaming}
+              />
+            ))}
+            
+            {isLoading && (
+              <Surface 
+                style={[
+                  styles.loadingContainer,
+                  { backgroundColor: isDarkMode ? '#1E1E1E' : '#F7F7F8' }
+                ]} 
+                elevation={0}
+              >
+                <View style={styles.loadingContent}>
+                  <ActivityIndicator 
+                    size="small" 
+                    color={isDarkMode ? theme.colors.accent : theme.colors.primary}
+                  />
+                </View>
+              </Surface>
+            )}
+          </ScrollView>
+          
+          <ChatInput 
+            onSend={handleSend}
+            isGenerating={isGenerating}
+            onStopGeneration={handleStopGeneration}
+            currentModel={currentModel}
+            onModelChange={handleModelChange}
+          />
+        </View>
       </View>
     </ProtectedRoute>
   );
