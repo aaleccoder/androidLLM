@@ -18,8 +18,10 @@ export const IndexHeaderRight = ({ isDarkMode, setIsDarkMode, theme }: HeaderLog
     <XStack space="$2" alignItems="center">
       <Button
         size="$3"
-        circular
-        backgroundColor={isDarkMode ? "#3D3D3D" : "#E9E9E9"}
+        padding="$2"
+        borderRadius="$4"
+        backgroundColor={isDarkMode ? "$backgroundDark" : "$backgroundLight"}
+        pressStyle={{ opacity: 0.7 }}
         onPress={() => setIsDarkMode(!isDarkMode)}
       >
         {isDarkMode ? (

@@ -20,7 +20,9 @@ export const HeaderRight = ({ isDarkMode, setIsDarkMode, setShowSettings, theme 
         onPress={() => setIsDarkMode(!isDarkMode)}
         backgroundColor={isDarkMode ? "$backgroundDark" : "$backgroundLight"}
         size="$3"
-        circular
+        padding="$2"
+        borderRadius="$4"
+        pressStyle={{ opacity: 0.7 }}
       >
         {isDarkMode ? (
           <Sun size={20} color={theme.colors.onSurface} />
@@ -32,7 +34,9 @@ export const HeaderRight = ({ isDarkMode, setIsDarkMode, setShowSettings, theme 
         onPress={() => setShowSettings(true)}
         backgroundColor={isDarkMode ? "$backgroundDark" : "$backgroundLight"}
         size="$3"
-        circular
+        padding="$2"
+        borderRadius="$4"
+        pressStyle={{ opacity: 0.7 }}
       >
         <Settings size={20} color={theme.colors.onSurface} />
       </Button>
@@ -40,7 +44,9 @@ export const HeaderRight = ({ isDarkMode, setIsDarkMode, setShowSettings, theme 
         onPress={logout}
         backgroundColor={isDarkMode ? "$backgroundDark" : "$backgroundLight"}
         size="$3"
-        circular
+        padding="$2"
+        borderRadius="$4"
+        pressStyle={{ opacity: 0.7 }}
       >
         <LogOut size={20} color={theme.colors.onSurface} />
       </Button>

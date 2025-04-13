@@ -11,10 +11,9 @@
  * - Chat history with thread management
  */
 import React, { useState, useEffect, useRef } from "react";
-import { BackHandler, AppState, View, TouchableOpacity } from 'react-native';
+import { BackHandler, AppState, View } from 'react-native';
 import { ScrollView } from 'tamagui';
 import { StatusBar } from 'expo-status-bar';
-import { Menu, RefreshCw } from 'lucide-react-native'; // Updated import
 import { useTheme } from '../../context/themeContext';
 import { ProtectedRoute, useAuth } from "../../hooks/useAuth";
 import { useNavigation } from "expo-router";
@@ -181,14 +180,6 @@ export default function Chat() {
       
       geminiService.resetChat();
       
-      const initialMessage = { 
-        isUser: false, 
-        text: "# Hello! How can I help you today?\n\nI'm ready to assist you with any questions or tasks you have.",
-        timestamp: Date.now()
-      };
-      
-      setMessages([initialMessage]);
-      
       const updatedData = {
         ...data,
         chatThreads: [
@@ -196,7 +187,7 @@ export default function Chat() {
           {
             id: Date.now().toString(),
             title: 'New Chat',
-            messages: [initialMessage],
+            messages: [],
             createdAt: Date.now(),
             updatedAt: Date.now()
           }
@@ -340,29 +331,7 @@ export default function Chat() {
         backgroundColor: isDarkMode ? theme.colors.background : theme.colors.background
       }}>
         <StatusBar style={isDarkMode ? "light" : "dark"}/>
-        <View style={{ flex: 1, marginTop: 8 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, paddingTop: 4 }}>
-            <TouchableOpacity 
-              onPress={toggleSidebar}
-              style={{ padding: 8 }}
-            >
-              <Menu 
-                size={24}
-                color={isDarkMode ? theme.colors.accent : theme.colors.primary}
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              onPress={resetChat}
-              style={{ padding: 8 }}
-            >
-              <RefreshCw 
-                size={24}
-                color={isDarkMode ? theme.colors.accent : theme.colors.primary}
-              />
-            </TouchableOpacity>
-          </View>
-
+        <View style={{ flex: 1 }}>
           <ScrollView
             ref={scrollViewRef}
             style={{ flex: 1 }}

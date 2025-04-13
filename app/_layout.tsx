@@ -9,8 +9,6 @@ import "./globals.css";
 import { useFonts } from "expo-font";
 import { Inter_400Regular } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
-import { HeaderRight } from "../components/HeaderRight";
-import { IndexHeaderRight } from "@/components/HeaderLogin";
 import { globalEventEmitter } from "./ui/chat";
 import { SafeAreaView, TextInput, StyleSheet } from "react-native";
 import { Eye, EyeOff, Save } from 'lucide-react-native';
@@ -26,6 +24,7 @@ import {
   styled
 } from 'tamagui';
 import { config } from "../utils/config/tamagui.config";
+import { TitleBar } from '../components/TitleBar';
 
 // Styled components for consistent theme usage
 const Container = styled(YStack, {
@@ -364,60 +363,42 @@ export default function RootLayout() {
 
   return (
     <TamaguiProvider config={config} defaultTheme={isDarkMode ? 'dark' : 'light'}>
-      <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode) }}>
+      <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode), tamaguiConfig: config }}>
         <DataProvider>
           <AuthProvider>
             <View f={1}>
               <SafeAreaView style={{ flex: 1 }}>
                 <Stack
                   screenOptions={{
-                    headerStyle: {
-                      backgroundColor: theme.colors.background
+                    header: ({ route }: { route: { name: string } }) => {
+                      const isChat = route.name === 'ui/chat';
+                      return (
+                        <TitleBar
+                          showMenuButton={isChat}
+                          isDarkMode={isDarkMode}
+                          setIsDarkMode={setIsDarkMode}
+                          setShowSettings={isChat ? setShowSettings : undefined}
+                        />
+                      );
                     },
-                    headerTintColor: theme.colors.text,
-                    headerTitleStyle: { 
-                      fontFamily: 'Inter_400Regular' 
-                    },
-                    headerShadowVisible: false,
                   }}
                 >
                   <Stack.Screen
                     name="index"
                     options={{
-                      title: "ChatLLM",
-                      headerRight: () => (
-                        <IndexHeaderRight
-                          isDarkMode={isDarkMode}
-                          setIsDarkMode={setIsDarkMode}
-                          theme={theme}
-                        />
-                      ),
                       headerShown: true,
                       headerBackVisible: false,
-                      headerLeft: () => null,
                       gestureEnabled: false,
                       animation: "none",
-                      headerBackButtonMenuEnabled: false,
                     }}
                   />
                   <Stack.Screen
                     name="ui/chat"
                     options={{
-                      title: "ChatLLM",
-                      headerRight: () => (
-                        <HeaderRight
-                          isDarkMode={isDarkMode}
-                          setIsDarkMode={setIsDarkMode}
-                          setShowSettings={setShowSettings}
-                          theme={theme}
-                        />
-                      ),
                       headerShown: true,
                       headerBackVisible: false,
-                      headerLeft: () => null,
                       gestureEnabled: false,
                       animation: "none",
-                      headerBackButtonMenuEnabled: false,
                     }}
                   />
                 </Stack>
