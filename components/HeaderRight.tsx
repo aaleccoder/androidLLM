@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { globalEventEmitter } from "@/app/ui/chat";
-import { HStack, Button } from "@gluestack-ui/themed";
+import { XStack, Button } from "tamagui";
 import { Sun, Moon, Settings, LogOut } from "lucide-react-native";
 import { MD3Theme } from "react-native-paper/lib/typescript/types";
 
@@ -15,13 +15,12 @@ export const HeaderRight = ({ isDarkMode, setIsDarkMode, setShowSettings, theme 
   const { logout } = useAuth();
   
   return (
-    <HStack space="sm">
+    <XStack space="$2">
       <Button
-        size="sm"
-        variant="solid"
-        bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
-        borderRadius="$full"
         onPress={() => setIsDarkMode(!isDarkMode)}
+        backgroundColor={isDarkMode ? "$backgroundDark" : "$backgroundLight"}
+        size="$3"
+        circular
       >
         {isDarkMode ? (
           <Sun size={20} color={theme.colors.onSurface} />
@@ -30,23 +29,21 @@ export const HeaderRight = ({ isDarkMode, setIsDarkMode, setShowSettings, theme 
         )}
       </Button>
       <Button
-        size="sm"
-        variant="solid"
-        bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
-        borderRadius="$full"
         onPress={() => setShowSettings(true)}
+        backgroundColor={isDarkMode ? "$backgroundDark" : "$backgroundLight"}
+        size="$3"
+        circular
       >
         <Settings size={20} color={theme.colors.onSurface} />
       </Button>
       <Button
-        size="sm"
-        variant="solid"
-        bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
-        borderRadius="$full"
         onPress={logout}
+        backgroundColor={isDarkMode ? "$backgroundDark" : "$backgroundLight"}
+        size="$3"
+        circular
       >
         <LogOut size={20} color={theme.colors.onSurface} />
       </Button>
-    </HStack>
+    </XStack>
   );
 };

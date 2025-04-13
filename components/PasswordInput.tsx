@@ -7,21 +7,18 @@
  * - Show/hide password option
  */
 import React, { useState } from 'react';
-import { Lock, Eye, EyeOff } from 'lucide-react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../context/themeContext';
-import {
-  Input,
-  InputField,
-  InputSlot,
-} from '@gluestack-ui/themed';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 /**
  * Props for the PasswordInput component
  */
 interface PasswordInputProps {
-    label: string;
-    value: string;
-    onChangeText: (text: string) => void;
+  password: string;
+  setPassword: (value: string) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
 }
 
 /**
@@ -30,33 +27,78 @@ interface PasswordInputProps {
  * @param {PasswordInputProps} props - Component properties
  * @returns {JSX.Element} Password input component
  */
-export function PasswordInput({ label, value, onChangeText }: PasswordInputProps) {
-    const [showPassword, setShowPassword] = useState(false);
-    const { isDarkMode, theme } = useTheme();
-    
-    return (
-        <Input
-            className="w-full mb-4 rounded-xl"
-            variant="outline"
-            size="lg"
+export const PasswordInput = ({ 
+  password, 
+  setPassword, 
+  placeholder = "Password", 
+  autoFocus = false
+}: PasswordInputProps) => {
+  const { isDarkMode } = useTheme();
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Create dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      backgroundColor: isDarkMode ? '#333' : '#f5f5f5',
+      borderColor: isDarkMode ? '#444' : '#e0e0e0',
+    },
+    input: {
+      color: isDarkMode ? '#fff' : '#000',
+    },
+    placeholder: {
+      color: isDarkMode ? '#888' : '#aaa',
+    }
+  };
+
+  return (
+    <View style={[styles.containerWrapper]}>
+      <View style={[styles.container, dynamicStyles.container]}>
+        <TextInput
+          style={[styles.input, dynamicStyles.input]}
+          value={password}
+          onChangeText={setPassword}
+          placeholder={placeholder}
+          placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect={false}
+          autoFocus={autoFocus === true}
+        />
+        <TouchableOpacity 
+          style={styles.iconButton}
+          onPress={() => setShowPassword(!showPassword)}
         >
-            <InputSlot pl="$3">
-                <Lock size={18} color={theme.colors.accent} />
-            </InputSlot>
-            <InputField
-                placeholder={label}
-                value={value}
-                onChangeText={onChangeText}
-                secureTextEntry={!showPassword}
-                className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}
-                placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
-            />
-            <InputSlot pr="$3" onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? 
-                    <EyeOff size={18} color={isDarkMode ? "#9CA3AF" : "#6B7280"} /> : 
-                    <Eye size={18} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
-                }
-            </InputSlot>
-        </Input>
-    );
-}
+          {showPassword ? (
+            <EyeOff size={20} color="#3A59D1" />
+          ) : (
+            <Eye size={20} color="#3A59D1" />
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  containerWrapper: {
+    width: '100%',
+  },
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 8,
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 8,
+  },
+  iconButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
+});

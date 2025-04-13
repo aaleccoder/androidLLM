@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScrollView, Animated } from 'react-native';
+import { ScrollView, Animated, Pressable } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import { ChatThread, useData } from '../context/dataContext';
 import { useAuth } from '../hooks/useAuth';
@@ -8,24 +8,16 @@ import * as Haptics from 'expo-haptics';
 // Import Lucide icons
 import { Plus, X, Trash } from "lucide-react-native";
 
+// Import Tamagui components
 import {
-  Box,
-  VStack,
-  HStack,
+  View,
+  YStack,
+  XStack,
   Text,
-  Heading,
-  Divider,
   Button,
-  ButtonText,
-  ButtonIcon,
-  Pressable,
-  Modal,
-  ModalBackdrop,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter
-} from "@gluestack-ui/themed";
+  Sheet,
+  H3
+} from 'tamagui';
 
 interface ChatSidebarProps {
   isVisible: boolean;
@@ -131,148 +123,133 @@ export const ChatSidebar = ({
           shadowOffset: { width: 2, height: 0 },
           shadowOpacity: 0.2,
           shadowRadius: 3,
-          margin: 0, // Ensure no margin
-          padding: 0, // Ensure no padding
+          margin: 0,
+          padding: 0,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 300,
+          zIndex: 10,
+          backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5'
         }}
-        className={`absolute top-0 left-0 bottom-0 w-[300px] z-10 ${
-          isDarkMode ? 'bg-neutral-900' : 'bg-neutral-100'
-        }`}
       >
-        <VStack className="h-full">
-          <HStack className="justify-between items-center px-4 py-3">
-            <Heading size="sm" className={isDarkMode ? "text-neutral-100" : "text-neutral-800"}>
-              Chat History
-            </Heading>
-            <HStack space="sm">
-              <Button
-                size="sm"
-                variant="solid"
-                bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
-                borderRadius="$full"
-                onPress={handleNewChat}
-              >
-                <ButtonIcon as={Plus} size="sm" color={theme.colors.onSurface} />
-              </Button>
-              <Button
-                size="sm"
-                variant="solid"
-                bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
-                borderRadius="$full"
-                onPress={onClose}
-              >
-                <ButtonIcon as={X} size="sm" color={theme.colors.onSurface} />
-              </Button>
-            </HStack>
-          </HStack>
-          
-          <Divider className={isDarkMode ? "bg-neutral-800" : "bg-neutral-200"} />
-
+        <View padding="$2" backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}>
           <Button
-            className="mx-4 my-4 rounded-xl"
-            size="md"
-            variant="solid"
-            bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
             onPress={handleNewChat}
+            backgroundColor={isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'}
+            borderRadius="$4"
+            size="$4"
           >
-            <ButtonIcon as={Plus} size="sm" color={theme.colors.onSurface} />
-            <ButtonText className={isDarkMode ? "text-neutral-100" : "text-neutral-800"}>New Chat</ButtonText>
+            <XStack space="$2" alignItems="center">
+              <Plus size={18} color={isDarkMode ? "#FFFFFF" : "#000000"} />
+              <Text color={isDarkMode ? '$textLight' : '$textDark'}>New Chat</Text>
+            </XStack>
           </Button>
+        </View>
 
-          {chatThreads.length === 0 ? (
-            <Box className="p-6">
-              <Text className="text-center text-neutral-400 dark:text-neutral-400">
-                No chat history yet. Start a new conversation!
-              </Text>
-            </Box>
-          ) : (
-            <ScrollView className="flex-1">
+        {chatThreads.length === 0 ? (
+          <View padding="$4">
+            <Text
+              textAlign="center"
+              color={isDarkMode ? '$textMuted' : '$textMuted'}
+            >
+              No chat history yet. Start a new conversation!
+            </Text>
+          </View>
+        ) : (
+          <ScrollView>
+            <YStack space="$2" padding="$2">
               {chatThreads.map(thread => {
                 const isSelected = thread.id === currentThreadId;
                 return (
                   <Pressable
                     key={thread.id}
                     onPress={() => handleSelectThread(thread.id)}
-                    className={`mx-2 my-1 rounded-xl overflow-hidden border-l-4 ${
-                      isSelected 
-                        ? isDarkMode 
-                          ? 'bg-neutral-800/50 border-l-accent-500'
-                          : 'bg-neutral-200/50 border-l-accent-500'
-                        : 'border-l-transparent'
-                    }`}
                   >
-                    <HStack className="px-4 py-4 items-center justify-between">
-                      <VStack className="flex-1 mr-2">
-                        <Text
-                          className={`mb-1 ${
-                            isSelected 
-                              ? 'font-medium text-accent-400'
-                              : isDarkMode
-                                ? 'text-neutral-200'
-                                : 'text-neutral-800'
-                          }`}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {thread.title}
-                        </Text>
-                        <Text className={isDarkMode ? 'text-xs text-neutral-400' : 'text-xs text-neutral-600'}>
-                          {formatDate(thread.updatedAt)}
-                        </Text>
-                      </VStack>
-                      {enableEditing && (
-                        <Button
-                          size="sm"
-                          variant="solid"
-                          bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
-                          borderRadius="$full"
-                          onPress={() => confirmDeleteThread(thread.id)}
-                        >
-                          <ButtonIcon as={Trash} size="sm" color={theme.colors.onSurface} />
-                        </Button>
-                      )}
-                    </HStack>
+                    <View
+                      backgroundColor={isSelected 
+                        ? isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'
+                        : 'transparent'
+                      }
+                      borderRadius="$4"
+                      borderLeftWidth={4}
+                      borderLeftColor={isSelected ? '$primary' : 'transparent'}
+                      padding="$3"
+                    >
+                      <XStack space="$2" alignItems="center" justifyContent="space-between">
+                        <YStack flex={1}>
+                          <Text
+                            color={isSelected 
+                              ? '$primary'
+                              : isDarkMode ? '$textLight' : '$textDark'
+                            }
+                            numberOfLines={1}
+                            marginBottom="$1"
+                          >
+                            {thread.title}
+                          </Text>
+                          <Text
+                            fontSize="$2"
+                            color={isDarkMode ? '$textMuted' : '$textMuted'}
+                          >
+                            {formatDate(thread.updatedAt)}
+                          </Text>
+                        </YStack>
+                        {enableEditing && (
+                          <Button
+                            size="$3"
+                            circular
+                            backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
+                            onPress={() => confirmDeleteThread(thread.id)}
+                          >
+                            <Trash size={16} color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                          </Button>
+                        )}
+                      </XStack>
+                    </View>
                   </Pressable>
                 );
               })}
-              <Box className="h-4"></Box>
-            </ScrollView>
-          )}
-        </VStack>
+            </YStack>
+          </ScrollView>
+        )}
       </Animated.View>
       
-      <Modal isOpen={!!deleteConfirmThreadId} onClose={() => setDeleteConfirmThreadId(null)}>
-        <ModalBackdrop />
-        <ModalContent className={`m-4 rounded-3xl ${isDarkMode ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
-          <ModalHeader>
-            <Heading size="lg" className={isDarkMode ? 'text-neutral-100' : 'text-neutral-900'}>Delete Chat</Heading>
-          </ModalHeader>
-          <ModalBody>
-            <Text className={isDarkMode ? 'mb-4 text-neutral-300' : 'mb-4 text-neutral-700'}>
+      <Sheet
+        modal
+        open={!!deleteConfirmThreadId}
+        onOpenChange={() => setDeleteConfirmThreadId(null)}
+        snapPoints={[40]}
+        dismissOnSnapToBottom
+      >
+        <Sheet.Overlay />
+        <Sheet.Frame padding="$4">
+          <YStack space="$4">
+            <H3>Delete Chat</H3>
+            <Text color={isDarkMode ? '$textLight' : '$textDark'}>
               Are you sure you want to delete this conversation? This action cannot be undone.
             </Text>
-          </ModalBody>
-          <ModalFooter className="gap-3">
-            <Button
-              variant="outline" 
-              size="md"
-              className="flex-1"
-              onPress={() => setDeleteConfirmThreadId(null)}
-            >
-              <ButtonText>Cancel</ButtonText>
-            </Button>
-            <Button
-              variant="solid"
-              bgColor="$error600"
-              size="md"
-              className="flex-1"
-              onPress={handleDeleteThread}
-            >
-              <ButtonIcon as={Trash} size="sm" color="#FFFFFF" />
-              <ButtonText>Delete</ButtonText>
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+            <XStack space="$3" justifyContent="space-between">
+              <Button
+                flex={1}
+                backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
+                onPress={() => setDeleteConfirmThreadId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                flex={1}
+                backgroundColor="$error"
+                onPress={handleDeleteThread}
+                icon={<Trash size={18} color="#fff" />}
+              >
+                Delete
+              </Button>
+            </XStack>
+          </YStack>
+        </Sheet.Frame>
+      </Sheet>
     </>
   );
 };

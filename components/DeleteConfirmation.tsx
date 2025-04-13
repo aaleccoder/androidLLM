@@ -5,23 +5,25 @@
  * with clearly marked actions and warning text
  */
 import React from 'react';
-import { AlertTriangle, Trash } from 'lucide-react-native';
 import { useTheme } from '../context/themeContext';
-import {
-  VStack,
-  HStack,
-  Button,
-  ButtonText,
+import { Trash } from 'lucide-react-native';
+import { 
+  Sheet,
+  YStack,
   Text,
-  Box
-} from '@gluestack-ui/themed';
+  XStack,
+  Button
+} from 'tamagui';
 
 /**
  * Props for the DeleteConfirmation component
  */
 interface DeleteConfirmationProps {
+  isOpen: boolean;
+  onClose: () => void;
   onDelete: () => void;
-  onCancel: () => void;
+  title?: string;
+  message?: string;
 }
 
 /**
@@ -30,34 +32,72 @@ interface DeleteConfirmationProps {
  * @param {DeleteConfirmationProps} props - Component properties
  * @returns {JSX.Element} Delete confirmation component
  */
-export function DeleteConfirmation({ onDelete, onCancel }: DeleteConfirmationProps) {
+export const DeleteConfirmation = ({
+  isOpen,
+  onClose,
+  onDelete,
+  title = "Delete Confirmation",
+  message = "Are you sure you want to delete this item? This action cannot be undone."
+}: DeleteConfirmationProps) => {
   const { isDarkMode } = useTheme();
 
   return (
-    <VStack className="gap-2 mt-2">
-      <HStack className="items-center justify-center mb-3">
-        <AlertTriangle size={24} color="#ef4444" />
-        <Text className={`ml-2 text-center font-medium ${isDarkMode ? 'text-error-500' : 'text-error-600'}`}>
-          This will delete all your data permanently!
-        </Text>
-      </HStack>
-      
-      <Button 
-        action="negative"
-        className="mb-2"
-        onPress={onDelete}
+    <Sheet
+      modal
+      open={isOpen}
+      onOpenChange={onClose}
+      snapPoints={[30]}
+      position={0}
+      dismissOnSnapToBottom
+    >
+      <Sheet.Overlay 
+        backgroundColor={isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)'}
+        animation="lazy"
+      />
+      <Sheet.Frame
+        padding="$4"
+        backgroundColor={isDarkMode ? '#222' : '#fff'}
+        borderTopLeftRadius="$6"
+        borderTopRightRadius="$6"
       >
-        <Trash size={16} color="white" style={{ marginRight: 8 }} />
-        <ButtonText>Yes, Delete Everything</ButtonText>
-      </Button>
-      
-      <Button 
-        variant="outline"
-        className="mb-1"
-        onPress={onCancel}
-      >
-        <ButtonText>Cancel</ButtonText>
-      </Button>
-    </VStack>
+        <YStack space="$4">
+          <Text 
+            fontSize="$6" 
+            fontWeight="bold"
+            color={isDarkMode ? '#fff' : '#000'}
+          >
+            {title}
+          </Text>
+          
+          <Text
+            fontSize="$4"
+            color={isDarkMode ? '#ccc' : '#333'}
+          >
+            {message}
+          </Text>
+          
+          <XStack space="$4" justifyContent="space-between">
+            <Button
+              flex={1}
+              backgroundColor={isDarkMode ? '#333' : '#eee'}
+              color={isDarkMode ? '#fff' : '#000'}
+              onPress={onClose}
+            >
+              Cancel
+            </Button>
+            
+            <Button
+              flex={1}
+              backgroundColor="#e63946"
+              color="#fff"
+              onPress={onDelete}
+              icon={<Trash size={18} color="#fff" />}
+            >
+              Delete
+            </Button>
+          </XStack>
+        </YStack>
+      </Sheet.Frame>
+    </Sheet>
   );
-}
+};

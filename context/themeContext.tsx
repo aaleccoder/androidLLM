@@ -1,35 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
 import { useColorScheme } from 'react-native';
+import { themeColors } from '../utils/theme';
+import { createTamagui } from 'tamagui';
+import { config } from '../utils/config/tamagui.config';
 
-// Gemini-inspired colors
-const chatGPTColors = {
-  light: {
-    primary: '#10a37f',
-    background: '#F8F9FA',
-    surface: '#F1F3F5',
-    userBubble: '#10a37f',     // Use primary color for user bubbles in light mode
-    assistantBubble: '#FFFFFF',
-    text: '#1F2937',          // Darker text for better contrast
-    accent: '#10a37f',        // Match primary color
-    onSurface: '#1F2937',     // Text color on surfaces
-  },
-  dark: {
-    primary: '#0B8161',
-    background: '#121416',
-    surface: '#212529',
-    userBubble: '#343541',
-    assistantBubble: '#444654',
-    text: '#E9ECEF',
-    accent: '#10a37f',
-    onSurface: '#E9ECEF',     // Light text for dark surfaces
-  }
-};
+// Initialize Tamagui with our config
+const tamaguiConfig = createTamagui(config);
 
 // Create theme based on the isDarkMode flag
 export const createTheme = (isDarkMode: boolean) => {
   const baseTheme = isDarkMode ? MD3DarkTheme : MD3LightTheme;
-  const colors = isDarkMode ? chatGPTColors.dark : chatGPTColors.light;
+  const colors = isDarkMode ? themeColors.dark : themeColors.light;
   
   return {
     ...baseTheme,
@@ -37,22 +19,23 @@ export const createTheme = (isDarkMode: boolean) => {
     roundness: 20,
     colors: {
       ...baseTheme.colors,
-      primary: colors.primary,
-      background: colors.background,
-      surface: colors.surface,
-      userBubble: colors.userBubble,
-      assistantBubble: colors.assistantBubble,
-      text: colors.text,
-      accent: colors.accent,
-      onSurface: colors.onSurface,
+      ...colors,
     }
   };
 };
 
-const ThemeContext = createContext({
+interface ThemeContextType {
+  theme: ReturnType<typeof createTheme>;
+  isDarkMode: boolean;
+  toggleTheme: () => void;
+  tamaguiConfig: typeof tamaguiConfig;
+}
+
+const ThemeContext = createContext<ThemeContextType>({
   theme: createTheme(false),
   isDarkMode: false,
-  toggleTheme: () => {}, // Default no-op function
+  toggleTheme: () => {},
+  tamaguiConfig,
 });
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
@@ -70,7 +53,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
   
   return (
-    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme, tamaguiConfig }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -78,5 +61,4 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useTheme = () => useContext(ThemeContext);
 
-// Export ThemeContext so it can be imported elsewhere
 export { ThemeContext };

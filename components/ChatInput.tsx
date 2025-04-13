@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Keyboard } from 'react-native';
+import { Keyboard, TextInput, View as RNView, StyleSheet } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import * as Haptics from 'expo-haptics';
 import { GeminiModel } from '../services/geminiService';
@@ -7,21 +7,15 @@ import { GeminiModel } from '../services/geminiService';
 // Import specific icons from lucide-react-native
 import { Send, X, Zap, Image } from "lucide-react-native";
 
-// Import GlueStack UI components
-import {
-  Box,
-  HStack,
-  VStack,
-  Input,
-  InputField,
-  Icon,
-  Menu,
-  MenuItem,
-  MenuItemLabel,
-  Text,
-  Pressable,
-  Button
-} from "@gluestack-ui/themed";
+// Import Tamagui components
+import { 
+  View, 
+  YStack, 
+  XStack, 
+  Text, 
+  Button, 
+  Sheet
+} from 'tamagui';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -81,111 +75,174 @@ export const ChatInput = ({
     }
   };
 
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      backgroundColor: isDarkMode ? '#171717' : '#fafafa',
+      borderTopColor: isDarkMode ? '#404040' : '#e5e5e5',
+    },
+    inputContainer: {
+      backgroundColor: isDarkMode ? '#262626' : '#f5f5f5',
+    },
+    input: {
+      color: isDarkMode ? '#ffffff' : '#171717',
+    },
+    modelButton: {
+      backgroundColor: isDarkMode ? '#262626' : '#f5f5f5',
+    },
+    modelButtonText: {
+      color: isDarkMode ? '#ffffff' : '#171717',
+    }
+  };
+
   return (
-    <Box 
-      className={`p-4 border-t border-neutral-200 dark:border-neutral-800 ${
-        isDarkMode ? 'bg-neutral-900' : 'bg-neutral-50'
-      }`}
-      style={{ 
-        shadowColor: isDarkMode ? '#000' : '#000', 
-        shadowOffset: { width: 0, height: -2 }, 
-        shadowOpacity: isDarkMode ? 0.2 : 0.1, 
-        shadowRadius: 3, 
-        elevation: 3 
-      }}
+    <RNView 
+      style={[
+        styles.container,
+        dynamicStyles.container
+      ]}
     >
-      <VStack space="sm">
-        <Menu
-          trigger={({ ...triggerProps }) => (
-            <Pressable 
-              {...triggerProps} 
-              className={`self-start mb-1 ${
-                isDarkMode ? 'bg-neutral-800' : 'bg-neutral-200'
-              } rounded-full px-3 py-1`}
-            >
-              <HStack space="xs" alignItems="center">
-                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                <Text className={isDarkMode ? 'text-sm text-neutral-200' : 'text-sm text-neutral-800'}>
-                  {getModelDisplayName(currentModel)}
-                </Text>
-              </HStack>
-            </Pressable>
-          )}
+      <YStack space="$2">
+        <Button
+          onPress={() => setShowModelMenu(true)}
+          style={[styles.modelButton, dynamicStyles.modelButton]}
         >
-          <MenuItem key="flash" onPress={() => handleModelChange('gemini-2.0-flash')}>
+          <XStack space="$2" alignItems="center">
             <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-            <MenuItemLabel>Gemini 2.0 Flash</MenuItemLabel>
-          </MenuItem>
-          <MenuItem key="pro15" onPress={() => handleModelChange('gemini-1.5-pro')}>
-            <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-            <MenuItemLabel>Gemini 1.5 Pro</MenuItemLabel>
-          </MenuItem>
-          <MenuItem key="pro25" onPress={() => handleModelChange('gemini-2.5-pro')}>
-            <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-            <MenuItemLabel>Gemini 2.5 Pro</MenuItemLabel>
-          </MenuItem>
-        </Menu>
+            <Text style={dynamicStyles.modelButtonText} fontSize="$3">
+              {getModelDisplayName(currentModel)}
+            </Text>
+          </XStack>
+        </Button>
         
-        <HStack space="md" alignItems="center">
-          <Box 
-            className={`flex-1 flex-row items-center rounded-2xl px-2 ${
-              isDarkMode ? 'bg-neutral-800' : 'bg-neutral-100'
-            }`}
-            style={{ minHeight: 48 }}
+        <XStack space="$3" alignItems="center">
+          <RNView 
+            style={[
+              styles.inputContainer,
+              dynamicStyles.inputContainer
+            ]}
           >
-            <Input
-              className="flex-1 max-h-[120px] px-2 py-2 bg-transparent border-0 rounded-2xl"
-              size="md"
-              isDisabled={isGenerating}
-            >
-              <InputField 
-                className={isDarkMode ? 'text-neutral-100' : 'text-neutral-800'}
-                placeholder="Message Gemini..."
-                placeholderTextColor={isDarkMode ? "#6B7280" : "#ADB5BD"}
-                value={input}
-                onChangeText={setInput}
-                multiline={true}
-                maxLength={2000}
-                blurOnSubmit={false}
-              />
-            </Input>
+            <TextInput
+              style={[styles.input, dynamicStyles.input]}
+              placeholder="Message Gemini..."
+              placeholderTextColor={isDarkMode ? '#a3a3a3' : '#737373'}
+              value={input}
+              onChangeText={setInput}
+              multiline={true}
+              maxLength={2000}
+            />
             {isGenerating ? (
               <Button
-                className="m-1"
-                size="md"
-                variant="solid"
-                bgColor="$error600"
-                borderRadius="$full"
                 onPress={handleStop}
+                style={styles.actionButton}
+                backgroundColor="#ef4444"
               >
                 <X size={20} color="#FFFFFF" />
               </Button>
             ) : hasInput ? (
               <Button
-                className="m-1"
-                size="md"
-                variant="solid"
-                bgColor="$primary500"
-                borderRadius="$full"
                 onPress={handleSend}
+                style={styles.actionButton}
+                backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
               >
-                <Send size={20} color={isDarkMode ? "#FFFFFF" : "#F8FAFC"} />
+                <Send size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
               </Button>
             ) : (
               <Button
-                className="m-1"
-                size="md"
-                variant="solid"
-                bgColor={isDarkMode ? "$neutral800" : "$neutral200"}
-                borderRadius="$full"
                 onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
+                style={styles.actionButton}
+                backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
               >
-                <Image size={20} color={theme.colors.onSurface} />
+                <Image size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
               </Button>
             )}
-          </Box>
-        </HStack>
-      </VStack>
-    </Box>
+          </RNView>
+        </XStack>
+      </YStack>
+
+      <Sheet
+        modal
+        open={showModelMenu}
+        onOpenChange={(open: any) => setShowModelMenu(open ? true : false)}
+        snapPoints={[25]}
+        position={0}
+        dismissOnSnapToBottom
+      >
+        <Sheet.Overlay />
+        <Sheet.Frame padding="$4">
+          <YStack space="$4">
+            <Button
+              onPress={() => handleModelChange('gemini-2.0-flash')}
+              backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
+              borderRadius="$4"
+            >
+              <XStack space="$2" alignItems="center">
+                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                <Text color={isDarkMode ? '#ffffff' : '#171717'}>Gemini 2.0 Flash</Text>
+              </XStack>
+            </Button>
+            <Button
+              onPress={() => handleModelChange('gemini-1.5-pro')}
+              backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
+              borderRadius="$4"
+            >
+              <XStack space="$2" alignItems="center">
+                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                <Text color={isDarkMode ? '#ffffff' : '#171717'}>Gemini 1.5 Pro</Text>
+              </XStack>
+            </Button>
+            <Button
+              onPress={() => handleModelChange('gemini-2.5-pro')}
+              backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
+              borderRadius="$4"
+            >
+              <XStack space="$2" alignItems="center">
+                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                <Text color={isDarkMode ? '#ffffff' : '#171717'}>Gemini 2.5 Pro</Text>
+              </XStack>
+            </Button>
+          </YStack>
+        </Sheet.Frame>
+      </Sheet>
+    </RNView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    borderTopWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  inputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    padding: 8,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    maxHeight: 100,
+  },
+  modelButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  actionButton: {
+    borderRadius: 8,
+    margin: 4,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
+});

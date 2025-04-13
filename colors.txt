@@ -1,0 +1,4 @@
+#3A59D1 Primary
+#3D90D7 Secondary
+#7AC6D2 Other
+#B5FCCD Accent
