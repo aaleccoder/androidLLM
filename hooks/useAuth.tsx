@@ -126,7 +126,7 @@ function useAuthHook() {
                 const initialData = {
                     apiKeys: {
                         gemini: '',
-                        groq: ''
+                        openRouter: ''
                     },
                     chatThreads: []
                 };

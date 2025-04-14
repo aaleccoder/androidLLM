@@ -1,29 +1,27 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'expo-router';
 import { Sun, Moon } from 'lucide-react-native';
-import { MD3Theme } from "react-native-paper/lib/typescript/types";
-import { IconButton } from 'react-native-paper';
+import { TouchableOpacity } from 'react-native';
 
 interface HeaderLoginProps {
   isDarkMode: boolean;
   setIsDarkMode: (value: boolean) => void;
-  theme: MD3Theme;
 }
 
-export const IndexHeaderRight = ({ isDarkMode, setIsDarkMode, theme }: HeaderLoginProps) => {
+export const IndexHeaderRight = ({ isDarkMode, setIsDarkMode }: HeaderLoginProps) => {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
   return (
-    <IconButton
-      size={20}
-      icon={isDarkMode ? "white-balance-sunny" : "moon-waning-crescent"}
+    <TouchableOpacity
+      className={`p-2 rounded-full ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
       onPress={() => setIsDarkMode(!isDarkMode)}
-      style={{
-        backgroundColor: isDarkMode ? theme.colors.background : theme.colors.surface,
-        borderRadius: 50,
-      }}
-      iconColor={theme.colors.onSurface}
-    />
+    >
+      {isDarkMode ? (
+        <Sun size={20} color="#fff" />
+      ) : (
+        <Moon size={20} color="#000" />
+      )}
+    </TouchableOpacity>
   );
 };

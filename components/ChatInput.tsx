@@ -1,19 +1,34 @@
 import React, { useState, useCallback } from 'react';
-import { Keyboard, TextInput, View as RNView, StyleSheet, View } from 'react-native';
+import { Keyboard, TextInput, View, StyleSheet, ViewStyle, TextStyle, Modal, Text, TouchableOpacity, Pressable } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import * as Haptics from 'expo-haptics';
-import { GeminiModel } from '../services/geminiService';
-import { Text as PaperText, Button as PaperButton, Modal } from 'react-native-paper';
+import { openRouterService } from '../services/openRouterService';
+import Fuse from 'fuse.js';
+import { Send, X, Zap, Image, Search } from "lucide-react-native";
 
-// Import specific icons from lucide-react-native
-import { Send, X, Zap, Image } from "lucide-react-native";
+// Model option type now includes provider
+type ModelOption = {
+  id: string;
+  displayName: string;
+  provider: 'gemini' | 'openrouter';
+};
+
+const GEMINI_MODELS: ModelOption[] = [
+  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', provider: 'gemini' },
+  { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', provider: 'gemini' },
+  { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', provider: 'gemini' },
+];
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, model: ModelOption) => void;
   isGenerating?: boolean;
   onStopGeneration?: () => void;
-  currentModel: GeminiModel;
-  onModelChange: (model: GeminiModel) => void;
+  currentModel: ModelOption;
+  onModelChange: (model: ModelOption) => void;
+  openRouterModels: string[];
+  addOpenRouterModel: (modelName: string) => void;
+  className?: string;
+  style?: ViewStyle | ViewStyle[];
 }
 
 const ChatInput = ({
@@ -22,100 +37,102 @@ const ChatInput = ({
   onStopGeneration,
   currentModel,
   onModelChange,
+  openRouterModels,
+  addOpenRouterModel,
+  className,
+  style,
 }: ChatInputProps) => {
   const [input, setInput] = useState("");
-  const { isDarkMode, theme } = useTheme();
+  const { isDarkMode } = useTheme();
   const [showModelMenu, setShowModelMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [newModelName, setNewModelName] = useState('');
+
+  // Combine Gemini and OpenRouter models
+  const openRouterModelOptions: ModelOption[] = openRouterModels.map(m => ({
+    id: m,
+    displayName: m,
+    provider: 'openrouter'
+  }));
+  const ALL_MODELS: ModelOption[] = [...GEMINI_MODELS, ...openRouterModelOptions];
+
+  const fuse = new Fuse(ALL_MODELS, {
+    keys: ['displayName'],
+    threshold: 0.4,
+    includeScore: true
+  });
+
+  const filteredModels = searchQuery
+    ? fuse.search(searchQuery).map(result => result.item)
+    : ALL_MODELS;
 
   const handleSend = useCallback(() => {
     if (input.trim()) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onSend(input.trim());
+      onSend(input.trim(), currentModel);
       setInput("");
       Keyboard.dismiss();
     }
-  }, [input, onSend]);
+  }, [input, onSend, currentModel]);
 
   const handleStop = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onStopGeneration?.();
   }, [onStopGeneration]);
 
-  const handleModelChange = (model: GeminiModel) => {
+  const handleModelChange = (model: ModelOption) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onModelChange(model);
     setShowModelMenu(false);
+    setSearchQuery('');
+  };
+
+  const handleAddOpenRouterModel = () => {
+    if (newModelName.trim()) {
+      addOpenRouterModel(newModelName.trim());
+      setNewModelName('');
+      setShowAddModel(false);
+      setShowModelMenu(false);
+    }
   };
 
   const hasInput = input.trim().length > 0;
 
-  const getModelDisplayName = (model: GeminiModel) => {
-    if (!model) {
-      return 'Gemini 1.5 Pro'; // Default fallback value
-    }
-
-    switch (model) {
-      case 'gemini-2.0-flash':
-        return 'Gemini 2.0 Flash';
-      case 'gemini-1.5-pro':
-        return 'Gemini 1.5 Pro';
-      case 'gemini-2.5-pro':
-        return 'Gemini 2.5 Pro';
-      default:
-        return model;
-    }
-  };
-
-  // Dynamic styles based on theme
-  const dynamicStyles = {
-    container: {
-      backgroundColor: isDarkMode ? '#171717' : '#fafafa',
-      borderTopColor: isDarkMode ? '#404040' : '#e5e5e5',
-    },
-    inputContainer: {
-      backgroundColor: isDarkMode ? '#262626' : '#f5f5f5',
-    },
-    input: {
-      color: isDarkMode ? '#ffffff' : '#171717',
-    },
-    modelButton: {
-      backgroundColor: isDarkMode ? '#262626' : '#f5f5f5',
-    },
-    modelButtonText: {
-      color: isDarkMode ? '#ffffff' : '#171717',
-    }
+  const getModelDisplayName = (model: ModelOption) => {
+    return `${model.displayName} (${model.provider === 'gemini' ? 'Gemini' : 'OpenRouter'})`;
   };
 
   return (
-    <RNView
+    <View
+      className={`p-4 border-t ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}
       style={[
-        styles.container,
-        dynamicStyles.container
+        {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
+          elevation: 3,
+        },
+        style
       ]}
     >
-      <RNView className="space-y-2">
-        <PaperButton
+      <View className="space-y-2">
+        <TouchableOpacity
           onPress={() => setShowModelMenu(true)}
-          style={[styles.modelButton, dynamicStyles.modelButton]}
+          className={`flex-row items-center space-x-2 px-3 py-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'} mb-4`}
         >
-          <RNView className="flex-row items-center space-x-2">
-            <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-            <PaperText style={[dynamicStyles.modelButtonText, {fontSize: 16}]} >
-              {getModelDisplayName(currentModel)}
-            </PaperText>
-          </RNView>
-        </PaperButton>
+          <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+          <Text className={`text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>
+            {getModelDisplayName(currentModel)}
+          </Text>
+        </TouchableOpacity>
 
-        <RNView className="flex-row items-center space-x-3">
-          <RNView
-            style={[
-              styles.inputContainer,
-              dynamicStyles.inputContainer
-            ]}
-          >
+        <View className="flex-row items-center space-x-3">
+          <View className={`flex-1 flex-row items-center rounded-lg px-3 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
             <TextInput
-              style={[styles.input, dynamicStyles.input]}
-              placeholder="Message Gemini..."
+              className={`flex-1 py-2 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
+              placeholder={`Message ${currentModel.provider === 'gemini' ? 'Gemini' : 'OpenRouter'}...`}
               placeholderTextColor={isDarkMode ? '#a3a3a3' : '#737373'}
               value={input}
               onChangeText={setInput}
@@ -123,113 +140,131 @@ const ChatInput = ({
               maxLength={2000}
             />
             {isGenerating ? (
-              <PaperButton
+              <TouchableOpacity
                 onPress={handleStop}
-                style={styles.actionButton}
-                buttonColor="#ef4444"
+                className="p-2 rounded-lg bg-red-500"
               >
                 <X size={20} color="#FFFFFF" />
-              </PaperButton>
+              </TouchableOpacity>
             ) : hasInput ? (
-              <PaperButton
+              <TouchableOpacity
                 onPress={handleSend}
-                style={styles.actionButton}
-                buttonColor={isDarkMode ? '#262626' : '#f5f5f5'}
+                className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}
               >
                 <Send size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-              </PaperButton>
+              </TouchableOpacity>
             ) : (
-              <PaperButton
+              <TouchableOpacity
                 onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
-                style={styles.actionButton}
-                buttonColor={isDarkMode ? '#262626' : '#f5f5f5'}
+                className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}
               >
                 <Image size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-              </PaperButton>
+              </TouchableOpacity>
             )}
-          </RNView>
-        </RNView>
-      </RNView>
+          </View>
+        </View>
+      </View>
 
       <Modal
         visible={showModelMenu}
-        onDismiss={() => setShowModelMenu(false)}
+        onRequestClose={() => setShowModelMenu(false)}
+        transparent={true}
+        animationType="slide"
       >
-        <RNView className="flex-1 justify-end bg-zinc-800/50">
-          <RNView className="bg-zinc-50 dark:bg-zinc-800 rounded-t-2xl p-4">
-            <RNView className="space-y-4">
-              <PaperButton
-                onPress={() => handleModelChange('gemini-2.0-flash')}
-                style={{ borderRadius: 8 }}
-              >
-                <RNView className="flex-row items-center space-x-2">
-                  <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                  <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>Gemini 2.0 Flash</PaperText>
-                </RNView>
-              </PaperButton>
-              <PaperButton
-                onPress={() => handleModelChange('gemini-1.5-pro')}
-                style={{ borderRadius: 8 }}
-              >
-                <RNView className="flex-row items-center space-x-2">
-                  <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                  <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>Gemini 1.5 Pro</PaperText>
-                </RNView>
-              </PaperButton>
-              <PaperButton
-                onPress={() => handleModelChange('gemini-2.5-pro')}
-                style={{ borderRadius: 8 }}
-              >
-                <RNView className="flex-row items-center space-x-2">
-                  <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                  <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>Gemini 2.5 Pro</PaperText>
-                </RNView>
-              </PaperButton>
-            </RNView>
-          </RNView>
-        </RNView>
+        <Pressable 
+          className="flex-1 bg-black/50"
+          onPress={() => setShowModelMenu(false)}
+        >
+          <View className="flex-1 justify-end">
+            <View className={`rounded-t-2xl p-4 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+              <View className="space-y-4">
+                <View className={`flex-row items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}>
+                  <Search size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                  <TextInput
+                    className={`flex-1 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
+                    placeholder="Search models..."
+                    placeholderTextColor={isDarkMode ? '#a3a3a3' : '#737373'}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <X size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {filteredModels.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    onPress={() => handleModelChange(option)}
+                    className={`flex-row items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'} my-2`}
+                  >
+                    <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                    <Text className={`text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>
+                      {getModelDisplayName(option)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+                <TouchableOpacity
+                  onPress={() => setShowAddModel(true)}
+                  className={`flex-row items-center space-x-2 p-3 rounded-lg border ${isDarkMode ? 'border-blue-400 bg-zinc-800' : 'border-blue-500 bg-zinc-100'} my-2`}
+                >
+                  <Zap size={16} color={isDarkMode ? "#3A59D1" : "#3A59D1"} />
+                  <Text className={`text-base ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>
+                    + Add OpenRouter Model
+                  </Text>
+                </TouchableOpacity>
+
+                {filteredModels.length === 0 && (
+                  <View className="p-4">
+                    <Text className={`text-center ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                      No models found
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Pressable>
+        <Modal
+          visible={showAddModel}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowAddModel(false)}
+        >
+          <View className="flex-1 justify-center items-center bg-black/50">
+            <View className={`w-[90%] rounded-2xl p-5 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+              <Text className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>Add OpenRouter Model</Text>
+              <TextInput
+                value={newModelName}
+                onChangeText={setNewModelName}
+                placeholder="Enter model name (e.g. mistral-7b)"
+                placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                className={`px-4 py-3 text-base rounded-lg ${isDarkMode ? 'bg-zinc-700 text-white' : 'bg-zinc-100 text-black'}`}
+                autoFocus
+              />
+              <View className="flex-row justify-end space-x-3 mt-4">
+                <TouchableOpacity
+                  onPress={() => setShowAddModel(false)}
+                  className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}
+                >
+                  <Text className={isDarkMode ? 'text-white' : 'text-black'}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleAddOpenRouterModel}
+                  className="px-4 py-2 rounded-lg bg-blue-500"
+                >
+                  <Text className="text-white">Add</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </Modal>
-    </RNView>
+    </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    borderTopWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  inputContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
-    padding: 8,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    maxHeight: 100,
-  },
-  modelButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  actionButton: {
-    borderRadius: 8,
-    margin: 4,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  }
-});
 
 export default ChatInput;

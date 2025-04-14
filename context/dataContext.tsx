@@ -19,9 +19,10 @@ export interface ChatThread {
 export interface AppData {
   apiKeys: {
     gemini: string;
-    groq: string;
+    openRouter: string;
   };
   chatThreads: ChatThread[];
+  openRouterModels?: string[];
   activeThreadId?: string;
   settings?: {
     customPrompt?: string;
@@ -50,6 +51,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       // Migrate older data format if needed
       if (!loadedData.chatThreads) {
         loadedData.chatThreads = [];
+      }
+      if (!loadedData.openRouterModels) {
+        loadedData.openRouterModels = [];
       }
       
       setData(loadedData as AppData);
@@ -115,13 +119,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     const updatedThreads = data.chatThreads.map(thread => {
       if (thread.id === threadId) {
-        // Update title based on first AI response if it's a new chat
+        // Update title based on first chat exchange
         let title = thread.title;
-        if (title === 'New Chat' && messages.length >= 2 && !messages[0].isUser) {
-          // Extract title from first AI message (use first line or first 20 chars)
-          const firstMessage = messages[1].isUser ? messages[0].text : messages[1].text;
-          title = firstMessage.split('\n')[0].replace(/^#+\s*/, '').substring(0, 30);
-          if (title.length === 30) title += '...';
+        if (title === 'New Chat' && messages.length >= 2) {
+          // Find first user message
+          const firstUserMessage = messages.find(m => m.isUser)?.text || '';
+          
+          // Extract a concise title from user's first message
+          title = firstUserMessage
+            .split('\n')[0] // Take first line
+            .replace(/^[#\s]+/, '') // Remove markdown headings and leading spaces
+            .substring(0, 50); // Limit length
+          
+          // Add ellipsis if truncated
+          if (firstUserMessage.length > 50) title += '...';
+          
+          // Fallback if title is too short
+          if (title.length < 10) {
+            // Try to extract context from AI's first response
+            const firstAIResponse = messages.find(m => !m.isUser)?.text || '';
+            const aiTitle = firstAIResponse
+              .split('\n')[0]
+              .replace(/^[#\s]+/, '')
+              .substring(0, 50);
+              
+            if (aiTitle.length > title.length) title = aiTitle;
+          }
         }
         
         return {

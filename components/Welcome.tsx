@@ -1,48 +1,19 @@
-import { View } from 'react-native'
-import { Text } from 'react-native-paper'
+import { View, Text } from 'react-native'
 import { Bot } from 'lucide-react-native'
 import { useTheme } from '../context/themeContext'
 
 export function Welcome() {
-  const { theme } = useTheme()
+  const { isDarkMode } = useTheme()
 
   return (
-    <View style={{
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-    }}>
-      <View style={{
-        backgroundColor: theme.colors.surface,
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16,
-      }}>
-        <Bot size={40} color={theme.colors.primary} />
+    <View className="flex-1 items-center justify-center p-6">
+      <View className={`w-20 h-20 rounded-full items-center justify-center mb-4 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+        <Bot size={40} color={isDarkMode ? "#fff" : "#000"} />
       </View>
-      <Text
-        style={{
-          color: theme.colors.text,
-          fontSize: 28,
-          fontWeight: 'bold',
-          textAlign: 'center',
-          marginBottom: 8,
-        }}
-      >
+      <Text className={`text-2xl font-bold text-center mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
         Welcome to ChatLLM
       </Text>
-      <Text
-        style={{
-          color: theme.colors.onSurfaceVariant,
-          fontSize: 16,
-          textAlign: 'center',
-          maxWidth: 300,
-        }}
-      >
+      <Text className={`text-base text-center max-w-[300px] ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
         Start a conversation with Gemini and explore the power of AI
       </Text>
     </View>

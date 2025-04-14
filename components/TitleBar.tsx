@@ -2,24 +2,7 @@ import { Menu, Settings, Sun, Moon, LogOut } from 'lucide-react-native'
 import { useTheme } from '../context/themeContext'
 import { globalEventEmitter } from '../app/ui/chat'
 import { useAuth } from '../hooks/useAuth'
-import { SafeAreaView, Platform, StatusBar, View } from 'react-native'
-import { Text, IconButton } from 'react-native-paper'
-
-const HeaderButton = {
-  minWidth: 44,
-  height: 44,
-  pressStyle: {
-    opacity: 0.8,
-    scale: 0.97,
-  },
-  animation: 'bouncy',
-}
-
-const HeaderIcon = {
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: 44,
-}
+import { SafeAreaView, Platform, StatusBar, View, Text, TouchableOpacity } from 'react-native'
 
 interface TitleBarProps {
   showMenuButton?: boolean
@@ -38,73 +21,53 @@ export function TitleBar({
   const { logout } = useAuth()
 
   return (
-    <View
-      style={{
-        backgroundColor: theme.colors.background,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.surface
-      }}
-    >
+    <View className={`${isDarkMode ? 'bg-zinc-900' : 'bg-white'} border-b ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'} p-3`}>
       <SafeAreaView>
-        <View
-          style={{
-            flexDirection: 'row',
-            paddingHorizontal: 8,
-            height: 56,
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View className="flex-row px-2 h-14 items-center justify-between" style={{
+          marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        }}>
+          <View className="flex-row items-center gap-3">
             {showMenuButton && (
-              <IconButton
-                icon="menu"
-                size={24}
+              <TouchableOpacity
+                className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
                 onPress={() => globalEventEmitter.emit('toggleSidebar')}
-                style={{ backgroundColor: theme.colors.surface }}
-                iconColor={theme.colors.text}
-              />
+              >
+                <Menu size={24} color={isDarkMode ? "#fff" : "#000"} />
+              </TouchableOpacity>
             )}
-            <Text
-              style={{
-                color: theme.colors.text,
-                fontSize: 20,
-                fontWeight: '600',
-                letterSpacing: -0.5,
-              }}
-            >
+            <Text className={`text-xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>
               ChatLLM
             </Text>
           </View>
 
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <IconButton
-              icon={isDarkMode ? "white-balance-sunny" : "brightness-3"}
-              size={24}
+          <View className="flex-row gap-2 items-center">
+            <TouchableOpacity
+              className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
               onPress={() => setIsDarkMode(!isDarkMode)}
-              style={{ backgroundColor: theme.colors.surface }}
-              iconColor={theme.colors.text}
-            />
+            >
+              {isDarkMode ? (
+                <Sun size={24} color="#fff" />
+              ) : (
+                <Moon size={24} color="#000" />
+              )}
+            </TouchableOpacity>
 
             {setShowSettings && (
-              <IconButton
-                icon="cog"
-                size={24}
+              <TouchableOpacity
+                className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
                 onPress={() => setShowSettings(true)}
-                style={{ backgroundColor: theme.colors.surface }}
-                iconColor={theme.colors.text}
-              />
+              >
+                <Settings size={24} color={isDarkMode ? "#fff" : "#000"} />
+              </TouchableOpacity>
             )}
 
             {showMenuButton && (
-              <IconButton
-                icon="logout"
-                size={24}
+              <TouchableOpacity
+                className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
                 onPress={logout}
-                style={{ backgroundColor: theme.colors.surface }}
-                iconColor={theme.colors.text}
-              />
+              >
+                <LogOut size={24} color={isDarkMode ? "#fff" : "#000"} />
+              </TouchableOpacity>
             )}
           </View>
         </View>

@@ -17,9 +17,10 @@ import { useTheme } from '../../context/themeContext';
 import { ProtectedRoute, useAuth } from "../../hooks/useAuth";
 import { useNavigation } from "expo-router";
 import { ChatMessage } from '../../components/ChatMessage';
-import { ChatInput } from '../../components/ChatInput';
+import ChatInput from '../../components/ChatInput';
 import { geminiService, GeminiModel } from '../../services/geminiService';
-import { useData, Message as DataMessage, ChatThread } from '../../context/dataContext';
+import { openRouterService } from '../../services/openRouterService';
+import { useData, Message as DataMessage, ChatThread, Message } from '../../context/dataContext';
 import * as Haptics from 'expo-haptics';
 import { ChatSidebar } from '../../components/ChatSidebar';
 import { Welcome } from '../../components/Welcome';
@@ -28,46 +29,86 @@ import { Welcome } from '../../components/Welcome';
 import { EventEmitter } from 'events';
 export const globalEventEmitter = new EventEmitter();
 
-interface Message {
-  isUser: boolean;
-  text: string;
-  timestamp?: number;
+// ModelOption type for ChatInput
+interface ModelOption {
+  id: string;
+  displayName: string;
+  provider: 'gemini' | 'openrouter';
+}
+
+// Extend Message type for UI streaming state
+interface ChatMessageType extends Message {
   isStreaming?: boolean;
 }
+
+const GEMINI_MODELS: ModelOption[] = [
+  { id: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', provider: 'gemini' },
+  { id: 'gemini-1.5-pro', displayName: 'Gemini 1.5 Pro', provider: 'gemini' },
+  { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', provider: 'gemini' },
+];
 
 export default function Chat() {
   const { isDarkMode, theme } = useTheme();
   const { data, createChatThread, updateChatThread, setActiveThread, saveData } = useData();
   const { getCurrentPassword } = useAuth();
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [apiKeySet, setApiKeySet] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState<string | undefined>(data?.activeThreadId);
   const [editingEnabled, setEditingEnabled] = useState(false);
-  const [currentModel, setCurrentModel] = useState<GeminiModel>(geminiService.getCurrentModel());
+  const [openRouterModels, setOpenRouterModels] = useState<string[]>([]);
+  const [currentModel, setCurrentModel] = useState<ModelOption>(GEMINI_MODELS[1]); // Default Gemini 1.5 Pro
   const [showWelcome, setShowWelcome] = useState(true);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const navigation = useNavigation();
 
-  const handleModelChange = async (model: GeminiModel) => {
-    saveMessages();
-    await geminiService.changeModel(model);
+  const handleModelChange = async (model: ModelOption) => {
+    if (model.provider === 'gemini') {
+      await geminiService.changeModel(model.id as any);
+    } else {
+      openRouterService.setCustomModel(model.id);
+    }
     setCurrentModel(model);
     handleNewChat();
   };
 
   useEffect(() => {
+    // Load OpenRouter models from app data
+    if (data?.openRouterModels) {
+      setOpenRouterModels(data.openRouterModels);
+    }
+  }, [data]);
+
+  const addOpenRouterModel = (modelName: string) => {
+    setOpenRouterModels(prev => {
+      if (prev.includes(modelName)) return prev;
+      const updated = [...prev, modelName];
+      // Persist to app data
+      if (data) {
+        const password = getCurrentPassword();
+        if (password) {
+          saveData({ ...data, openRouterModels: updated }, password);
+        }
+      }
+      return updated;
+    });
+    setCurrentModel({ id: modelName, displayName: modelName, provider: 'openrouter' });
+  };
+
+  useEffect(() => {
     if (data?.apiKeys?.gemini) {
       geminiService.setApiKey(data.apiKeys.gemini);
-      setApiKeySet(geminiService.isInitialized());
-    } else {
-      setApiKeySet(false);
     }
+    if (data?.apiKeys?.openRouter) {
+      openRouterService.setApiKey(data.apiKeys.openRouter);
+    }
+  }, [data]);
 
+  useEffect(() => {
     if (data?.activeThreadId && data.chatThreads) {
       const activeThread = data.chatThreads.find(thread => thread.id === data.activeThreadId);
       if (activeThread && activeThread.messages.length > 0) {
@@ -177,9 +218,7 @@ export default function Chat() {
         console.error('Cannot create thread: No password available');
         return;
       }
-      
       geminiService.resetChat();
-      
       const updatedData = {
         ...data,
         chatThreads: [
@@ -192,16 +231,15 @@ export default function Chat() {
             updatedAt: Date.now()
           }
         ],
-        apiKeys: data?.apiKeys || { gemini: '', groq: '' },
+        apiKeys: {
+          gemini: data?.apiKeys?.gemini || '',
+          openRouter: data?.apiKeys?.openRouter || ''
+        },
       };
-      
       const newThreadId = updatedData.chatThreads[updatedData.chatThreads.length - 1].id;
       updatedData.activeThreadId = newThreadId;
-      
       setCurrentThreadId(newThreadId);
-      
       await saveData(updatedData, password);
-      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -258,19 +296,6 @@ export default function Chat() {
 
     setShowWelcome(false);
 
-    if (!apiKeySet) {
-      setMessages(prev => [
-        ...prev, 
-        { isUser: true, text: message, timestamp: Date.now() },
-        { 
-          isUser: false, 
-          text: "# API Key Required\n\nPlease set your Gemini API key in the settings to use this feature.",
-          timestamp: Date.now()
-        }
-      ]);
-      return;
-    }
-    
     setMessages(prev => [...prev, { isUser: true, text: message, timestamp: Date.now() }]);
     setMessages(prev => [...prev, { isUser: false, text: '', timestamp: Date.now(), isStreaming: true }]);
     
@@ -278,16 +303,29 @@ export default function Chat() {
     setIsGenerating(true);
     
     try {
-      await geminiService.sendMessage(message, (partialResponse) => {
-        setMessages(prev => {
-          const newMessages = [...prev];
-          const lastMessage = newMessages[newMessages.length - 1];
-          if (lastMessage && !lastMessage.isUser) {
-            lastMessage.text = partialResponse;
-          }
-          return newMessages;
+      if (currentModel.provider === 'gemini') {
+        await geminiService.sendMessage(message, (partialResponse) => {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage && !lastMessage.isUser) {
+              lastMessage.text = partialResponse;
+            }
+            return newMessages;
+          });
         });
-      });
+      } else {
+        await openRouterService.sendMessage(message, (partialResponse) => {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage && !lastMessage.isUser) {
+              lastMessage.text = partialResponse;
+            }
+            return newMessages;
+          });
+        });
+      }
 
       setMessages(prev => {
         const newMessages = [...prev];
@@ -327,18 +365,15 @@ export default function Chat() {
 
   return (
     <ProtectedRoute>
-      <View style={{
-        flex: 1, 
-        backgroundColor: isDarkMode ? theme.colors.background : theme.colors.background
-      }}>
+      <View className={`flex-1 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'} border-b ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
         <StatusBar style={isDarkMode ? "light" : "dark"}/>
-        <View style={{ flex: 1 }}>
+        <View className="flex-1">
           {showWelcome ? (
             <Welcome />
           ) : (
             <ScrollView
               ref={scrollViewRef}
-              style={{ flex: 1 }}
+              className="flex-1"
               contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
             >
               {messages.map((message, index) => (
@@ -359,6 +394,8 @@ export default function Chat() {
             onStopGeneration={handleStopGeneration}
             currentModel={currentModel}
             onModelChange={handleModelChange}
+            openRouterModels={openRouterModels}
+            addOpenRouterModel={addOpenRouterModel}
           />
           
           {showSidebar && (
