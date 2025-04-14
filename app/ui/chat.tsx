@@ -289,21 +289,35 @@ export default function Chat() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleSend = async (message: string) => {
+  const handleSend = async (message: string, model: ModelOption) => {
+    console.log('[Chat] handleSend called with:', { message, model });
+    if (model.provider === 'openrouter' && !openRouterModels.includes(model.id)) {
+      setMessages(prev => [
+        ...prev,
+        { isUser: true, text: message, timestamp: Date.now() },
+        {
+          isUser: false,
+          text: `The model "${model.id}" is not available in your OpenRouter models. Please select or add a valid model in the model selector.
+
+See https://openrouter.ai/models for available models.`,
+          timestamp: Date.now(),
+          isStreaming: false
+        }
+      ]);
+      setIsLoading(false);
+      setIsGenerating(false);
+      return;
+    }
     if (!currentThreadId) {
       await handleNewChat();
     }
-
     setShowWelcome(false);
-
     setMessages(prev => [...prev, { isUser: true, text: message, timestamp: Date.now() }]);
     setMessages(prev => [...prev, { isUser: false, text: '', timestamp: Date.now(), isStreaming: true }]);
-    
     setIsLoading(true);
     setIsGenerating(true);
-    
     try {
-      if (currentModel.provider === 'gemini') {
+      if (model.provider === 'gemini') {
         await geminiService.sendMessage(message, (partialResponse) => {
           setMessages(prev => {
             const newMessages = [...prev];
@@ -315,7 +329,7 @@ export default function Chat() {
           });
         });
       } else {
-        await openRouterService.sendMessage(message, (partialResponse) => {
+        const result = await openRouterService.sendMessage(message, (partialResponse) => {
           setMessages(prev => {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
@@ -325,8 +339,26 @@ export default function Chat() {
             return newMessages;
           });
         });
+        console.log('[Chat] openRouterService.sendMessage result:', result);
+        // If the result is an error string, show it in the chat
+        if (
+          typeof result === 'string' &&
+          (result.includes('API key not set') || result.startsWith("I'm sorry") || result.toLowerCase().includes('error'))
+        ) {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage && !lastMessage.isUser) {
+              lastMessage.text = result;
+              lastMessage.isStreaming = false;
+            }
+            return newMessages;
+          });
+          setIsLoading(false);
+          setIsGenerating(false);
+          return;
+        }
       }
-
       setMessages(prev => {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];

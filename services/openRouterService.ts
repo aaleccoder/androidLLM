@@ -104,7 +104,17 @@ export class OpenRouterService {
       ...this.contextManager.getHistory()
     ];
 
+    // Log all request data
+    console.log('[OpenRouter] Sending request:', {
+      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      apiKeySet: !!this.apiKey,
+      model: this.currentModel,
+      messages,
+      stream: false
+    });
+
     try {
+      console.log('[OpenRouter] Sending request to OpenRouter servers...');
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -120,6 +130,11 @@ export class OpenRouterService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('[OpenRouter] API error:', errorText);
+        // Check for invalid model error
+        if (errorText.includes('not a valid model ID')) {
+          return `The model "${this.currentModel}" is not a valid OpenRouter model. Please check your model name or select a valid model from https://openrouter.ai/models.`;
+        }
         throw new Error(`OpenRouter API error: ${errorText}`);
       }
 
@@ -150,7 +165,12 @@ export class OpenRouterService {
       this.contextManager.addMessage('assistant', stoppedResponse);
       return stoppedResponse;
     } catch (error) {
-      console.error('Error generating response from OpenRouter:', error);
+      const err = error as Error;
+      // Surface invalid model error if present in error message
+      if (typeof err.message === 'string' && err.message.includes('not a valid model ID')) {
+        return `The model "${this.currentModel}" is not a valid OpenRouter model. Please check your model name or select a valid model from https://openrouter.ai/models.`;
+      }
+      console.error('[OpenRouter] Error generating response:', error);
       return "I'm sorry, I encountered an error processing your request. Please try again.";
     }
   }

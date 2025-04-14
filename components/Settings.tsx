@@ -31,7 +31,7 @@ interface SettingsProps {
 export function Settings({ isVisible, onClose }: SettingsProps) {
   const { isDarkMode } = useTheme();
   const { data, saveData } = useData();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, validateAndSavePassword } = useAuth();
 
   const [formState, setFormState] = useState<FormState>({
     geminiKey: data?.apiKeys?.gemini || '',
@@ -49,6 +49,10 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
     saveError: null,
   });
 
+  const [showKeyPrompt, setShowKeyPrompt] = useState<'gemini' | 'openrouter' | null>(null);
+  const [keyPromptPassword, setKeyPromptPassword] = useState('');
+  const [keyRevealError, setKeyRevealError] = useState<string | null>(null);
+
   const handleInputChange = useCallback((field: keyof FormState, value: string) => {
     setFormState(prev => ({ ...prev, [field]: value }));
   }, []);
@@ -56,6 +60,29 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
   const toggleVisibility = useCallback((field: keyof Pick<UiState, 'showGeminiKey' | 'showGroqKey' | 'showPassword'>) => {
     setUiState(prev => ({ ...prev, [field]: !prev[field] }));
   }, []);
+
+  const handleShowApiKey = async (keyType: 'gemini' | 'openrouter') => {
+    setShowKeyPrompt(keyType);
+    setKeyPromptPassword('');
+    setKeyRevealError(null);
+  };
+
+  const handleRevealApiKey = async () => {
+    try {
+      const valid = await validateAndSavePassword(keyPromptPassword);
+      if (!valid) throw new Error('Incorrect password');
+      setUiState(prev => ({
+        ...prev,
+        showGeminiKey: showKeyPrompt === 'gemini' ? true : prev.showGeminiKey,
+        showGroqKey: showKeyPrompt === 'openrouter' ? true : prev.showGroqKey,
+      }));
+      setShowKeyPrompt(null);
+      setKeyPromptPassword('');
+      setKeyRevealError(null);
+    } catch (err) {
+      setKeyRevealError('Incorrect password');
+    }
+  };
 
   const handleSaveSettings = useCallback(async () => {
     if (!isAuthenticated || uiState.isSaving) return;
@@ -152,8 +179,14 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
                           className={`flex-1 px-4 py-3 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
                         />
                         <TouchableOpacity
+                          onPress={() => handleShowApiKey('gemini')}
+                          className="px-2"
+                        >
+                          <Text className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>Show API</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
                           onPress={() => toggleVisibility('showGeminiKey')}
-                          className="px-4"
+                          className="px-2"
                         >
                           {uiState.showGeminiKey ? (
                             <EyeOff size={20} color={isDarkMode ? "#fff" : "#000"} />
@@ -178,8 +211,14 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
                           className={`flex-1 px-4 py-3 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
                         />
                         <TouchableOpacity
+                          onPress={() => handleShowApiKey('openrouter')}
+                          className="px-2"
+                        >
+                          <Text className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>Show API</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
                           onPress={() => toggleVisibility('showGroqKey')}
-                          className="px-4"
+                          className="px-2"
                         >
                           {uiState.showGroqKey ? (
                             <EyeOff size={20} color={isDarkMode ? "#fff" : "#000"} />
@@ -191,6 +230,47 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
                     </View>
                   </View>
                 </View>
+
+                {showKeyPrompt && (
+                  <Modal
+                    visible={true}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowKeyPrompt(null)}
+                  >
+                    <View className="flex-1 justify-center items-center bg-black/50">
+                      <View className={`w-[90%] rounded-2xl p-5 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                        <Text className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>Enter Password to Reveal API Key</Text>
+                        <TextInput
+                          value={keyPromptPassword}
+                          onChangeText={setKeyPromptPassword}
+                          placeholder="Password"
+                          placeholderTextColor={isDarkMode ? '#666' : '#999'}
+                          secureTextEntry
+                          className={`px-4 py-3 text-base rounded-lg ${isDarkMode ? 'bg-zinc-700 text-white' : 'bg-zinc-100 text-black'}`}
+                          autoFocus
+                        />
+                        {keyRevealError && (
+                          <Text className="text-red-500 mt-2">{keyRevealError}</Text>
+                        )}
+                        <View className="flex-row justify-end space-x-3 mt-4">
+                          <TouchableOpacity
+                            onPress={() => setShowKeyPrompt(null)}
+                            className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}
+                          >
+                            <Text className={isDarkMode ? 'text-white' : 'text-black'}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={handleRevealApiKey}
+                            className="px-4 py-2 rounded-lg bg-blue-500"
+                          >
+                            <Text className="text-white">Reveal</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  </Modal>
+                )}
 
                 <View className="mb-6">
                   <Text className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`}>
