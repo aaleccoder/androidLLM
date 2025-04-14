@@ -1,50 +1,61 @@
-# Welcome to your Expo app 👋
+# Android LLM Chat App 🤖
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native mobile application that provides a chat interface for Google's Gemini AI models, built with Expo.
 
-## Get started
+## Features
+
+- 💬 Chat interface for Gemini AI models
+- 🔑 Secure API key management
+- 💾 Local chat history storage
+- 🎨 Modern UI with Tamagui components
+- 🎯 NativeWind styling (Tailwind CSS for React Native)
+
+## Prerequisites
+
+- Node.js installed on your machine
+- Gemini API key ([Get it here](https://makersuite.google.com/app/apikey))
+
+## Get Started
 
 1. Install dependencies
-
    ```bash
    npm install
    ```
 
-2. Start the app
-
+2. Start the development server
    ```bash
-    npx expo start
+   npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+3. Enter your Gemini API key in the app settings
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Running the App
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+You can run the app using:
+- Android Emulator
+- iOS Simulator
+- Expo Go app on your physical device
 
-## Get a fresh project
+## Technologies Used
 
-When you're ready, run:
+- React Native with Expo
+- Tamagui UI Components
+- NativeWind (Tailwind CSS)
+- Google Gemini API
+- React Context API
+- Local encrypted storage
 
-```bash
-npm run reset-project
+## Project Structure
+
+```
+androidLLM/
+├── components/    # Reusable UI components
+├── context/      # React Context providers
+├── services/     # External services (Gemini API)
+├── utils/        # Utility functions
+└── screens/      # Application screens
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Security
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This app stores your Gemini API key and chat history locally on your device using encryption for security.
