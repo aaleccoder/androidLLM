@@ -49,7 +49,7 @@ const GEMINI_MODELS: ModelOption[] = [
 
 export default function Chat() {
   const { isDarkMode, theme } = useTheme();
-  const { data, createChatThread, updateChatThread, setActiveThread, saveData } = useData();
+  const { data, createChatThread, updateChatThread, setActiveThread, saveData, deleteChatThread } = useData();
   const { getCurrentPassword } = useAuth();
 
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
@@ -67,13 +67,20 @@ export default function Chat() {
   const navigation = useNavigation();
 
   const handleModelChange = async (model: ModelOption) => {
+    // First update the current model state
+    setCurrentModel(model);
+
+    // Then update the appropriate service and reset chat
     if (model.provider === 'gemini') {
       await geminiService.changeModel(model.id as any);
     } else {
+      // Reset chat history first since OpenRouter service needs this
+      openRouterService.resetChat();
       openRouterService.setCustomModel(model.id);
     }
-    setCurrentModel(model);
-    handleNewChat();
+    
+    // Create a new chat with the updated model
+    await handleNewChat();
   };
 
   useEffect(() => {
@@ -168,33 +175,51 @@ export default function Chat() {
     messagesRef.current = messages;
   }, [messages]);
 
-  useEffect(() => {
-    const handleAppStateChange = async (nextAppState: string) => {
-      try {
-        if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
-          console.log('App going to background, saving messages...');
-          await saveMessages();
+  // Enhanced method for batch saving messages with debouncing
+  const saveMessagesThrottled = useRef(
+    (() => {
+      let timeoutId: NodeJS.Timeout | null = null;
+      let lastSaved = 0;
+      const THROTTLE_TIME = 2000; // 2 seconds throttle
+      
+      return (msgs: ChatMessageType[], immediate = false): Promise<void> => {
+        if (!currentThreadId) return Promise.resolve();
+        
+        const now = Date.now();
+        // Clear any pending timeout
+        if (timeoutId) clearTimeout(timeoutId);
+        
+        // If immediate or throttle time passed, save now
+        if (immediate || now - lastSaved > THROTTLE_TIME) {
+          lastSaved = now;
+          return saveMessagesExecute(msgs);
+        } else {
+          // Otherwise schedule for later
+          return new Promise((resolve, reject) => {
+            timeoutId = setTimeout(() => {
+              saveMessagesExecute(msgs)
+                .then(resolve)
+                .catch(reject);
+              lastSaved = Date.now();
+              timeoutId = null;
+            }, THROTTLE_TIME);
+          });
         }
-        appStateRef.current = nextAppState as AppState['currentState'];
-      } catch (error) {
-        console.error('Error handling app state change:', error);
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-
-    return () => {
-      subscription.remove();
-      saveMessages().catch(error => 
-        console.error('Error saving messages on cleanup:', error)
-      );
-    };
-  }, []);
-
-  const saveMessages = async (): Promise<void> => {
-    if (!currentThreadId || messagesRef.current.length === 0) return;
+      };
+    })()
+  ).current;
+  
+  // Core function to save messages to the JSON file
+  const saveMessagesExecute = async (msgs: ChatMessageType[]): Promise<void> => {
+    if (!currentThreadId || msgs.length === 0) return;
     
-    const messagesWithTimestamps = messagesRef.current.map(msg => ({
+    // Check if thread still exists
+    if (!data?.chatThreads?.find(t => t.id === currentThreadId)) {
+      console.log('Thread no longer exists, skipping save');
+      return;
+    }
+    
+    const messagesWithTimestamps = msgs.map(msg => ({
       isUser: msg.isUser,
       text: msg.text,
       timestamp: msg.timestamp || Date.now()
@@ -211,47 +236,110 @@ export default function Chat() {
     }
   };
 
-  const handleNewChat = async () => {
+  // Enhanced app state change handler with optimized saves
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: string) => {
+      try {
+        if (appStateRef.current.match(/active/) && nextAppState.match(/inactive|background/)) {
+          console.log('App going to background, saving messages...');
+          // Force immediate save when app goes to background
+          if (messagesRef.current.length > 0) {
+            saveMessagesThrottled(messagesRef.current, true);
+          }
+        }
+        appStateRef.current = nextAppState as AppState['currentState'];
+      } catch (error) {
+        console.error('Error handling app state change:', error);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+      // Final save on cleanup if needed
+      if (messagesRef.current.length > 0) {
+        saveMessagesThrottled(messagesRef.current, true).catch(error => 
+          console.error('Error saving messages on cleanup:', error)
+        );
+      }
+    };
+  }, []);
+
+  /**
+   * Creates a new chat thread with optimized data handling
+   */
+  const handleNewChat = async (): Promise<string> => {
     try {
+      // Save current messages if any before creating new chat
+      if (currentThreadId && messagesRef.current.length > 0) {
+        await saveMessagesExecute(messagesRef.current);
+      }
+      
       const password = getCurrentPassword();
       if (!password) {
-        console.error('Cannot create thread: No password available');
-        return;
+        throw new Error('Cannot create thread: No password available');
       }
+
+      // Reset chat state
       geminiService.resetChat();
+      openRouterService.resetChat();
+      setMessages([]);
+      setShowWelcome(true);
+
+      // Create unique thread ID
+      const newThreadId = `thread_${Date.now()}`;
+      
+      // Create new thread object
+      const newThread: ChatThread = {
+        id: newThreadId,
+        title: 'New Chat',
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      // Create updated data object, optimizing for immutability
       const updatedData = {
         ...data,
         chatThreads: [
           ...(data?.chatThreads || []),
-          {
-            id: Date.now().toString(),
-            title: 'New Chat',
-            messages: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
+          newThread
         ],
-        apiKeys: {
-          gemini: data?.apiKeys?.gemini || '',
-          openRouter: data?.apiKeys?.openRouter || ''
-        },
+        apiKeys: data?.apiKeys || { gemini: '', openRouter: '' },
+        activeThreadId: newThreadId,
+        openRouterModels: data?.openRouterModels || []
       };
-      const newThreadId = updatedData.chatThreads[updatedData.chatThreads.length - 1].id;
-      updatedData.activeThreadId = newThreadId;
-      setCurrentThreadId(newThreadId);
+
+      // Save the updated data
       await saveData(updatedData, password);
+      
+      // Update local state immediately
+      setCurrentThreadId(newThreadId);
+      
+      // Provide tactile feedback for good UX
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return newThreadId;
     } catch (error) {
       console.error('Error creating new chat:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      throw error;
     }
   };
 
+  /**
+   * Switches to a different chat thread with optimized state transitions
+   */
   const handleSelectThread = async (threadId: string) => {
     if (threadId === currentThreadId) return;
     
     try {
-      saveMessages();
+      // Save current thread's messages first if needed
+      if (currentThreadId && messagesRef.current.length > 0) {
+        await saveMessagesExecute(messagesRef.current);
+      }
       
+      // Find the thread to switch to
       const thread = data?.chatThreads?.find(t => t.id === threadId);
       if (!thread) {
         console.error('Thread not found:', threadId);
@@ -264,18 +352,102 @@ export default function Chat() {
         return;
       }
       
+      // Update active thread in storage
       await setActiveThread(threadId, password);
-      setCurrentThreadId(threadId);
       
+      // Reset chat contexts in services to avoid interference between chats
+      geminiService.resetChat();
+      openRouterService.resetChat();
+      
+      // Update local state
+      setCurrentThreadId(threadId);
+      setShowWelcome(false);
+      
+      // Load messages from selected thread
       setMessages(thread.messages.map(msg => ({
         isUser: msg.isUser,
         text: msg.text,
         timestamp: msg.timestamp
       })));
       
-      geminiService.resetChat();
+      // Provide tactile feedback
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {
       console.error('Error selecting thread:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  /**
+   * Deletes a chat thread with proper cleanup
+   */
+  const handleDeleteThread = async (threadId: string): Promise<boolean> => {
+    try {
+      const password = getCurrentPassword();
+      if (!password) {
+        console.error('Cannot delete thread: No password available');
+        return false;
+      }
+
+      // Check if we're deleting the active thread
+      const isActiveThread = threadId === currentThreadId;
+      
+      // Perform the deletion
+      await deleteChatThread(threadId, password);
+      
+      // If we deleted the active thread, reset the UI state
+      if (isActiveThread) {
+        setMessages([]);
+        setShowWelcome(true);
+        
+        // After deletion, find if there's a new active thread to show
+        if (data?.chatThreads && data.chatThreads.length > 0 && data.activeThreadId) {
+          const newActiveThread = data.chatThreads.find(t => t.id === data.activeThreadId);
+          if (newActiveThread) {
+            setMessages(newActiveThread.messages.map(msg => ({
+              isUser: msg.isUser,
+              text: msg.text,
+              timestamp: msg.timestamp
+            })));
+            setShowWelcome(newActiveThread.messages.length === 0);
+            setCurrentThreadId(newActiveThread.id);
+          }
+        }
+      }
+      
+      // Provide success feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return true;
+    } catch (error) {
+      console.error('Error deleting thread:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return false;
+    }
+  };
+
+  // Handler for saving messages - use the optimized throttled version
+  const saveMessages = () => {
+    if (messagesRef.current.length > 0) {
+      saveMessagesThrottled(messagesRef.current);
+    }
+  };
+
+  // More efficient immediate save for critical updates
+  const saveMessagesImmediate = (msgs: ChatMessageType[]) => {
+    if (msgs.length > 0) {
+      saveMessagesThrottled(msgs, true);
+    }
+  };
+
+  // Handler for sidebar to create a new chat and focus it
+  const handleSidebarNewChat = async (): Promise<string> => {
+    try {
+      // Create new chat and get thread ID
+      const newThreadId = await handleNewChat();
+      return newThreadId;
+    } catch (err) {
+      console.error('Error creating new chat from sidebar:', err);
+      throw err;
     }
   };
 
@@ -308,15 +480,30 @@ See https://openrouter.ai/models for available models.`,
       setIsGenerating(false);
       return;
     }
+
+    // Create new chat if needed
     if (!currentThreadId) {
       await handleNewChat();
     }
+
+    // Update states
     setShowWelcome(false);
-    setMessages(prev => [...prev, { isUser: true, text: message, timestamp: Date.now() }]);
-    setMessages(prev => [...prev, { isUser: false, text: '', timestamp: Date.now(), isStreaming: true }]);
+    setMessages(prev => {
+      const updated = [...prev, { isUser: true, text: message, timestamp: Date.now() }];
+      saveMessagesImmediate(updated); // Save after user message
+      return updated;
+    });
+    setMessages(prev => {
+      const updated = [...prev, { isUser: false, text: '', timestamp: Date.now(), isStreaming: true }];
+      saveMessagesImmediate(updated); // Save after assistant placeholder
+      return updated;
+    });
     setIsLoading(true);
     setIsGenerating(true);
+
     try {
+      let response = '';
+      // Handle response based on provider
       if (model.provider === 'gemini') {
         await geminiService.sendMessage(message, (partialResponse) => {
           setMessages(prev => {
@@ -324,6 +511,16 @@ See https://openrouter.ai/models for available models.`,
             const lastMessage = newMessages[newMessages.length - 1];
             if (lastMessage && !lastMessage.isUser) {
               lastMessage.text = partialResponse;
+              response = partialResponse; // Keep track of final response
+              saveMessagesImmediate(newMessages); // Save after each partial response
+            }
+            return newMessages;
+          });
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage && !lastMessage.isUser) {
+              lastMessage.isStreaming = true; // Ensure the bubble is displayed
             }
             return newMessages;
           });
@@ -335,16 +532,24 @@ See https://openrouter.ai/models for available models.`,
             const lastMessage = newMessages[newMessages.length - 1];
             if (lastMessage && !lastMessage.isUser) {
               lastMessage.text = partialResponse;
+              response = partialResponse; // Keep track of final response
+              saveMessagesImmediate(newMessages); // Save after each partial response
+            }
+            return newMessages;
+          });
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage && !lastMessage.isUser) {
+              lastMessage.isStreaming = true; // Ensure the bubble is displayed
             }
             return newMessages;
           });
         });
-        console.log('[Chat] openRouterService.sendMessage result:', result);
-        // If the result is an error string, show it in the chat
-        if (
-          typeof result === 'string' &&
-          (result.includes('API key not set') || result.startsWith("I'm sorry") || result.toLowerCase().includes('error'))
-        ) {
+
+        // Handle error responses
+        if (typeof result === 'string' &&
+          (result.includes('API key not set') || result.startsWith("I'm sorry") || result.toLowerCase().includes('error'))) {
           setMessages(prev => {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
@@ -359,14 +564,35 @@ See https://openrouter.ai/models for available models.`,
           return;
         }
       }
+
+      // Update message states
       setMessages(prev => {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
         if (lastMessage && !lastMessage.isUser) {
           lastMessage.isStreaming = false;
+          saveMessagesImmediate(newMessages); // Save after assistant finishes
         }
         return newMessages;
       });
+
+      // Save messages and update thread title
+      const password = getCurrentPassword();
+      if (password && currentThreadId) {
+        const updatedMessages = messages.map(msg => ({
+          isUser: msg.isUser,
+          text: msg.text,
+          timestamp: msg.timestamp || Date.now()
+        }));
+        
+        // Add the latest message pair
+        updatedMessages.push(
+          { isUser: true, text: message, timestamp: Date.now() },
+          { isUser: false, text: response, timestamp: Date.now() }
+        );
+
+        await updateChatThread(currentThreadId, updatedMessages, password);
+      }
     } catch (error) {
       console.error('Error getting response:', error);
       setMessages(prev => {
@@ -434,9 +660,10 @@ See https://openrouter.ai/models for available models.`,
             <ChatSidebar
               isVisible={true}
               onClose={() => setShowSidebar(false)}
-              onNewChat={handleNewChat}
+              onNewChat={handleSidebarNewChat}
               currentThreadId={currentThreadId}
               onSelectThread={handleSelectThread}
+              onDeleteThread={handleDeleteThread}
               enableEditing={true}
             />
           )}

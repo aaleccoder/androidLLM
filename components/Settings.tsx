@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { useData } from '../context/dataContext';
 import { useAuth } from '../hooks/useAuth';
@@ -9,12 +9,12 @@ import * as Haptics from 'expo-haptics';
 
 type UiState = {
   showGeminiKey: boolean;
-  showGroqKey: boolean;
+  showOpenRouterKey: boolean;
   showPassword: boolean;
   showPasswordInput: boolean;
   isSaving: boolean;
   saveError: string | null;
-}
+} 
 
 type FormState = {
   geminiKey: string;
@@ -33,6 +33,24 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
   const { data, saveData } = useData();
   const { isAuthenticated, validateAndSavePassword } = useAuth();
 
+  // Add useEffect to update form state when data changes
+  useEffect(() => {
+    if (data) {
+      setFormState(prev => ({
+        ...prev,
+        geminiKey: data.apiKeys.gemini || '',
+        openRouterKey: data.apiKeys.openRouter || '',
+        customPrompt: data.settings?.customPrompt || ''
+      }));
+    }
+  }, [data]);
+
+  const maskKey = (key: string) => {
+    if (!key) return '';
+    if (key.length <= 8) return '•'.repeat(key.length);
+    return `${key.slice(0, 4)}${'•'.repeat(key.length - 8)}${key.slice(-4)}`;
+  };
+
   const [formState, setFormState] = useState<FormState>({
     geminiKey: data?.apiKeys?.gemini || '',
     openRouterKey: data?.apiKeys?.openRouter || '',
@@ -42,7 +60,7 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
 
   const [uiState, setUiState] = useState<UiState>({
     showGeminiKey: false,
-    showGroqKey: false,
+    showOpenRouterKey: false,
     showPassword: false,
     showPasswordInput: false,
     isSaving: false,
@@ -57,7 +75,7 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
     setFormState(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const toggleVisibility = useCallback((field: keyof Pick<UiState, 'showGeminiKey' | 'showGroqKey' | 'showPassword'>) => {
+  const toggleVisibility = useCallback((field: keyof Pick<UiState, 'showGeminiKey' | 'showOpenRouterKey' | 'showPassword'>) => {
     setUiState(prev => ({ ...prev, [field]: !prev[field] }));
   }, []);
 
@@ -74,7 +92,7 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
       setUiState(prev => ({
         ...prev,
         showGeminiKey: showKeyPrompt === 'gemini' ? true : prev.showGeminiKey,
-        showGroqKey: showKeyPrompt === 'openrouter' ? true : prev.showGroqKey,
+        showOpenRouterKey: showKeyPrompt === 'openrouter' ? true : prev.showOpenRouterKey,
       }));
       setShowKeyPrompt(null);
       setKeyPromptPassword('');
@@ -167,22 +185,27 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
                   <View className="space-y-4">
                     <View>
                       <Text className={`text-base mb-1 ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                        Gemini API Key
+                        Gemini API Key {formState.geminiKey ? (
+                          <Text className={`text-xs ml-2 text-green-500`}>Set</Text>
+                        ) : (
+                          <Text className={`text-xs ml-2 text-red-500`}>Not Set</Text>
+                        )}
                       </Text>
                       <View className={`flex-row items-center rounded-lg overflow-hidden ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}>
                         <TextInput
-                          value={formState.geminiKey}
+                          value={uiState.showGeminiKey ? formState.geminiKey : maskKey(formState.geminiKey)}
                           onChangeText={(value) => handleInputChange('geminiKey', value)}
                           placeholder="Enter Gemini API Key"
                           placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                          secureTextEntry={!uiState.showGeminiKey}
+                          secureTextEntry={false}
                           className={`flex-1 px-4 py-3 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
+                          editable={!uiState.showGeminiKey}
                         />
                         <TouchableOpacity
                           onPress={() => handleShowApiKey('gemini')}
                           className="px-2"
                         >
-                          <Text className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>Show API</Text>
+                          <Text className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>{uiState.showGeminiKey ? 'Hide' : 'Show'}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => toggleVisibility('showGeminiKey')}
@@ -199,28 +222,33 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
 
                     <View>
                       <Text className={`text-base mb-1 ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                        OpenRouter API Key
+                        OpenRouter API Key {formState.openRouterKey ? (
+                          <Text className={`text-xs ml-2 text-green-500`}>Set</Text>
+                        ) : (
+                          <Text className={`text-xs ml-2 text-red-500`}>Not Set</Text>
+                        )}
                       </Text>
                       <View className={`flex-row items-center rounded-lg overflow-hidden ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}>
                         <TextInput
-                          value={formState.openRouterKey}
+                          value={uiState.showOpenRouterKey ? formState.openRouterKey : maskKey(formState.openRouterKey)}
                           onChangeText={(value) => handleInputChange('openRouterKey', value)}
                           placeholder="Enter OpenRouter API Key"
                           placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                          secureTextEntry={!uiState.showGroqKey}
+                          secureTextEntry={false}
                           className={`flex-1 px-4 py-3 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
+                          editable={!uiState.showOpenRouterKey}
                         />
                         <TouchableOpacity
                           onPress={() => handleShowApiKey('openrouter')}
                           className="px-2"
                         >
-                          <Text className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>Show API</Text>
+                          <Text className={`text-xs ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>{uiState.showOpenRouterKey ? 'Hide' : 'Show'}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() => toggleVisibility('showGroqKey')}
+                          onPress={() => toggleVisibility('showOpenRouterKey')}
                           className="px-2"
                         >
-                          {uiState.showGroqKey ? (
+                          {uiState.showOpenRouterKey ? (
                             <EyeOff size={20} color={isDarkMode ? "#fff" : "#000"} />
                           ) : (
                             <Eye size={20} color={isDarkMode ? "#fff" : "#000"} />
