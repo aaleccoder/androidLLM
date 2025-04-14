@@ -7,13 +7,13 @@
 import React from 'react';
 import { useTheme } from '../context/themeContext';
 import { Trash } from 'lucide-react-native';
-import { 
-  Sheet,
-  YStack,
+import {
+  Modal,
+  Portal,
   Text,
-  XStack,
-  Button
-} from 'tamagui';
+  Button,
+  Card
+} from 'react-native-paper';
 
 /**
  * Props for the DeleteConfirmation component
@@ -42,62 +42,72 @@ export const DeleteConfirmation = ({
   const { isDarkMode } = useTheme();
 
   return (
-    <Sheet
-      modal
-      open={isOpen}
-      onOpenChange={onClose}
-      snapPoints={[30]}
-      position={0}
-      dismissOnSnapToBottom
-    >
-      <Sheet.Overlay 
-        backgroundColor={isDarkMode ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)'}
-        animation="lazy"
-      />
-      <Sheet.Frame
-        padding="$4"
-        backgroundColor={isDarkMode ? '#222' : '#fff'}
-        borderTopLeftRadius="$6"
-        borderTopRightRadius="$6"
+    <Portal>
+      <Modal
+        visible={isOpen}
+        onDismiss={onClose}
+        contentContainerStyle={{
+          backgroundColor: isDarkMode ? '#222' : '#fff',
+          padding: 20,
+          borderRadius: 10,
+        }}
       >
-        <YStack space="$4">
-          <Text 
-            fontSize="$6" 
-            fontWeight="bold"
-            color={isDarkMode ? '#fff' : '#000'}
-          >
-            {title}
-          </Text>
-          
-          <Text
-            fontSize="$4"
-            color={isDarkMode ? '#ccc' : '#333'}
-          >
-            {message}
-          </Text>
-          
-          <XStack space="$4" justifyContent="space-between">
-            <Button
-              flex={1}
-              backgroundColor={isDarkMode ? '#333' : '#eee'}
-              color={isDarkMode ? '#fff' : '#000'}
-              onPress={onClose}
+        <Card>
+          <Card.Content>
+            <Text 
+              style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                color: isDarkMode ? '#fff' : '#000',
+              }}
             >
-              Cancel
-            </Button>
+              {title}
+            </Text>
             
-            <Button
-              flex={1}
-              backgroundColor="#e63946"
-              color="#fff"
-              onPress={onDelete}
-              icon={<Trash size={18} color="#fff" />}
+            <Text
+              style={{
+                fontSize: 16,
+                color: isDarkMode ? '#ccc' : '#333',
+                marginVertical: 10,
+              }}
             >
-              Delete
-            </Button>
-          </XStack>
-        </YStack>
-      </Sheet.Frame>
-    </Sheet>
+              {message}
+            </Text>
+            
+            <Card.Actions style={{ justifyContent: 'space-between' }}>
+              <Button
+                mode="outlined"
+                onPress={onClose}
+                style={{
+                  flex: 1,
+                  marginRight: 10,
+                  borderColor: isDarkMode ? '#333' : '#eee',
+                }}
+                labelStyle={{
+                  color: isDarkMode ? '#fff' : '#000',
+                }}
+              >
+                Cancel
+              </Button>
+              
+              <Button
+                mode="contained"
+                onPress={onDelete}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#e63946',
+                }}
+                labelStyle={{
+                  color: '#fff',
+                }}
+                icon={() => <Trash size={18} color="#fff" />}
+              >
+                Delete
+              </Button>
+            </Card.Actions>
+          </Card.Content>
+        </Card>
+      </Modal>
+    </Portal>
   );
 };

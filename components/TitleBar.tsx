@@ -1,26 +1,25 @@
-import { XStack, Button, Text, styled, View } from 'tamagui'
 import { Menu, Settings, Sun, Moon, LogOut } from 'lucide-react-native'
 import { useTheme } from '../context/themeContext'
 import { globalEventEmitter } from '../app/ui/chat'
 import { useAuth } from '../hooks/useAuth'
-import { SafeAreaView, Platform, StatusBar } from 'react-native'
+import { SafeAreaView, Platform, StatusBar, View } from 'react-native'
+import { Text, IconButton } from 'react-native-paper'
 
-const HeaderButton = styled(Button, {
+const HeaderButton = {
   minWidth: 44,
   height: 44,
-  backgroundColor: '$backgroundSecondary',
   pressStyle: {
     opacity: 0.8,
     scale: 0.97,
   },
   animation: 'bouncy',
-})
+}
 
-const HeaderIcon = styled(XStack, {
+const HeaderIcon = {
   alignItems: 'center',
   justifyContent: 'center',
   height: 44,
-})
+}
 
 interface TitleBarProps {
   showMenuButton?: boolean
@@ -40,72 +39,75 @@ export function TitleBar({
 
   return (
     <View
-      backgroundColor="$background"
-      borderBottomWidth={1}
-      borderBottomColor="$borderColor"
+      style={{
+        backgroundColor: theme.colors.background,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.surface
+      }}
     >
       <SafeAreaView>
-        <XStack
-          paddingHorizontal="$2"
-          height={56}
-          alignItems="center"
-          justifyContent="space-between"
-          marginTop={Platform.OS === 'android' ? StatusBar.currentHeight : 0}
+        <View
+          style={{
+            flexDirection: 'row',
+            paddingHorizontal: 8,
+            height: 56,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+          }}
         >
-          <XStack alignItems="center" space="$3">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             {showMenuButton && (
-              <HeaderButton
+              <IconButton
+                icon="menu"
+                size={24}
                 onPress={() => globalEventEmitter.emit('toggleSidebar')}
-              >
-                <HeaderIcon>
-                  <Menu size={24} color={theme.colors.text} />
-                </HeaderIcon>
-              </HeaderButton>
+                style={{ backgroundColor: theme.colors.surface }}
+                iconColor={theme.colors.text}
+              />
             )}
             <Text
-              color="$color"
-              fontSize={20}
-              fontWeight="600"
-              letterSpacing={-0.5}
+              style={{
+                color: theme.colors.text,
+                fontSize: 20,
+                fontWeight: '600',
+                letterSpacing: -0.5,
+              }}
             >
               ChatLLM
             </Text>
-          </XStack>
+          </View>
 
-          <XStack space="$2" alignItems="center">
-            <HeaderButton
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <IconButton
+              icon={isDarkMode ? "white-balance-sunny" : "brightness-3"}
+              size={24}
               onPress={() => setIsDarkMode(!isDarkMode)}
-            >
-              <HeaderIcon>
-                {isDarkMode ? (
-                  <Sun size={24} color={theme.colors.text} />
-                ) : (
-                  <Moon size={24} color={theme.colors.text} />
-                )}
-              </HeaderIcon>
-            </HeaderButton>
+              style={{ backgroundColor: theme.colors.surface }}
+              iconColor={theme.colors.text}
+            />
 
             {setShowSettings && (
-              <HeaderButton
+              <IconButton
+                icon="cog"
+                size={24}
                 onPress={() => setShowSettings(true)}
-              >
-                <HeaderIcon>
-                  <Settings size={24} color={theme.colors.text} />
-                </HeaderIcon>
-              </HeaderButton>
+                style={{ backgroundColor: theme.colors.surface }}
+                iconColor={theme.colors.text}
+              />
             )}
 
             {showMenuButton && (
-              <HeaderButton
+              <IconButton
+                icon="logout"
+                size={24}
                 onPress={logout}
-              >
-                <HeaderIcon>
-                  <LogOut size={24} color={theme.colors.text} />
-                </HeaderIcon>
-              </HeaderButton>
+                style={{ backgroundColor: theme.colors.surface }}
+                iconColor={theme.colors.text}
+              />
             )}
-          </XStack>
-        </XStack>
+          </View>
+        </View>
       </SafeAreaView>
     </View>
   )

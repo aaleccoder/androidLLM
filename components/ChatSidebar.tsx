@@ -1,37 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScrollView, Animated, Pressable, TouchableWithoutFeedback } from 'react-native';
+import { ScrollView, Animated, Pressable, TouchableWithoutFeedback, View } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import { ChatThread, useData } from '../context/dataContext';
 import { useAuth } from '../hooks/useAuth';
 import * as Haptics from 'expo-haptics';
+import { Text as PaperText, Button as PaperButton, Modal } from 'react-native-paper';
 
 // Import Lucide icons
 import { Plus, X, Trash } from "lucide-react-native";
-
-// Import Tamagui components
-import {
-  View,
-  YStack,
-  XStack,
-  Text,
-  Button,
-  Sheet,
-  H3,
-  styled
-} from 'tamagui';
-
-const SidebarContainer = styled(Animated.View, {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  bottom: 0,
-  width: 300,
-  zIndex: 10,
-  shadowColor: '#000',
-  shadowOffset: { width: 2, height: 0 },
-  shadowOpacity: 0.2,
-  shadowRadius: 3,
-});
 
 interface ChatSidebarProps {
   isVisible: boolean;
@@ -167,44 +143,51 @@ export const ChatSidebar = ({
         />
       </TouchableWithoutFeedback>
 
-      <SidebarContainer 
-        style={{ 
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 300,
+          zIndex: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 2, height: 0 },
+          shadowOpacity: 0.2,
+          shadowRadius: 3,
           transform: [{ translateX }],
-        }} 
+        }}
       >
         <View
-          backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
-          f={1}
+          style={{
+            flex: 1,
+            backgroundColor: isDarkMode ? '#171717' : '#fafafa',
+          }}
         >
-          <YStack space="$2" padding="$2">
-            <Button
+          <View className="space-y-2 p-2">
+            <PaperButton
               onPress={handleNewChat}
-              backgroundColor={isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'}
-              borderRadius="$4"
-              size="$3"
               disabled={!canCreateNewChat}
-              opacity={canCreateNewChat ? 1 : 0.5}
-              pressStyle={{ scale: 0.97 }}
+              style={{ opacity: canCreateNewChat ? 1 : 0.5, borderRadius: 8 }}
             >
-              <XStack space="$2" alignItems="center">
+              <View className="flex-row items-center space-x-2">
                 <Plus size={16} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-                <Text color={isDarkMode ? '$textLight' : '$textDark'} fontSize="$3">New Chat</Text>
-              </XStack>
-            </Button>
+                <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>New Chat</PaperText>
+              </View>
+            </PaperButton>
 
             {chatThreads.length === 0 ? (
-              <YStack f={1} jc="center" ai="center" padding="$2">
-                <Text
-                  textAlign="center"
-                  color={isDarkMode ? '$textMuted' : '$textMuted'}
-                  fontSize="$2"
+              <View className="flex-1 justify-center items-center p-2">
+                <PaperText
+                  className="text-center"
+                  style={{ color: isDarkMode ? '#a3a3a3' : '#737373' }}
                 >
                   No chat history yet. Start a new conversation!
-                </Text>
-              </YStack>
+                </PaperText>
+              </View>
             ) : (
               <ScrollView>
-                <YStack space="$1">
+                <View className="space-y-1">
                   {chatThreads.map(thread => {
                     const isSelected = thread.id === currentThreadId;
                     return (
@@ -213,94 +196,85 @@ export const ChatSidebar = ({
                         onPress={() => handleSelectThread(thread.id)}
                       >
                         <View
-                          backgroundColor={isSelected
-                            ? isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'
-                            : 'transparent'
-                          }
-                          borderRadius="$2"
-                          borderLeftWidth={2}
-                          borderLeftColor={isSelected ? '$primary' : 'transparent'}
-                          paddingVertical="$2"
-                          paddingHorizontal="$3"
-                          pressStyle={{ scale: 0.98 }}
+                          style={{
+                            backgroundColor: isSelected
+                              ? isDarkMode ? '#262626' : '#f5f5f5'
+                              : 'transparent',
+                            borderRadius: 8,
+                            borderLeftWidth: 2,
+                            borderLeftColor: isSelected ? '#3A59D1' : 'transparent',
+                            paddingVertical: 8,
+                            paddingHorizontal: 12,
+                          }}
                         >
-                          <XStack space="$2" alignItems="center" justifyContent="space-between">
-                            <YStack flex={1} space="$0">
-                              <Text
-                                color={isSelected
-                                  ? '$primary'
-                                  : isDarkMode ? '$textLight' : '$textDark'
-                                }
+                          <View className="flex-row items-center justify-between">
+                            <View className="flex-1 space-y-0">
+                              <PaperText
+                                style={{
+                                  color: isSelected
+                                    ? '#3A59D1'
+                                    : isDarkMode ? '#ffffff' : '#171717'
+                                }}
                                 numberOfLines={1}
-                                fontSize="$3"
-                                fontWeight={isSelected ? "500" : "400"}
                               >
                                 {thread.title}
-                              </Text>
-                              <Text
-                                fontSize="$1"
-                                color={isDarkMode ? '$textMuted' : '$textMuted'}
+                              </PaperText>
+                              <PaperText
+                                style={{ color: isDarkMode ? '#a3a3a3' : '#737373' }}
                               >
                                 {formatDate(thread.updatedAt)}
-                              </Text>
-                            </YStack>
+                              </PaperText>
+                            </View>
                             {enableEditing && (
-                              <Button
-                                size="$2"
-                                padding="$1"
-                                backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
+                              <PaperButton
                                 onPress={() => confirmDeleteThread(thread.id)}
-                                pressStyle={{ scale: 0.95 }}
+                                style={{ borderRadius: 8, margin: 0 }}
                               >
                                 <Trash size={14} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-                              </Button>
+                              </PaperButton>
                             )}
-                          </XStack>
+                          </View>
                         </View>
                       </Pressable>
                     );
                   })}
-                </YStack>
+                </View>
               </ScrollView>
             )}
-          </YStack>
+          </View>
         </View>
-      </SidebarContainer>
+      </Animated.View>
 
-      <Sheet
-        modal
-        open={!!deleteConfirmThreadId}
-        onOpenChange={handleCancelDelete}
-        snapPoints={[40]}
-        dismissOnSnapToBottom
+      <Modal
+        visible={!!deleteConfirmThreadId}
+        onDismiss={handleCancelDelete}
       >
-        <Sheet.Overlay />
-        <Sheet.Frame padding="$4">
-          <YStack space="$4">
-            <H3>Delete Chat</H3>
-            <Text color={isDarkMode ? '$textLight' : '$textDark'}>
-              Are you sure you want to delete this conversation? This action cannot be undone.
-            </Text>
-            <XStack space="$3" justifyContent="space-between">
-              <Button
-                flex={1}
-                backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
-                onPress={handleCancelDelete}
-              >
-                Cancel
-              </Button>
-              <Button
-                flex={1}
-                backgroundColor="$error"
-                onPress={handleDeleteThread}
-                icon={<Trash size={18} color="#fff" />}
-              >
-                Delete
-              </Button>
-            </XStack>
-          </YStack>
-        </Sheet.Frame>
-      </Sheet>
+        <View className="flex-1 justify-end bg-zinc-800/50">
+          <View className="bg-zinc-50 dark:bg-zinc-800 rounded-t-2xl p-4">
+            <View className="space-y-4">
+              <PaperText className="text-xl font-semibold">Delete Chat</PaperText>
+              <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>
+                Are you sure you want to delete this conversation? This action cannot be undone.
+              </PaperText>
+              <View className="flex-row justify-between space-x-3">
+                <PaperButton
+                  onPress={handleCancelDelete}
+                  style={{ borderRadius: 8, flex: 1 }}
+                >
+                  Cancel
+                </PaperButton>
+                <PaperButton
+                  onPress={handleDeleteThread}
+                  style={{ borderRadius: 8, flex: 1, backgroundColor: '#e63946' }}
+                  labelStyle={{ color: '#fff' }}
+                >
+                  Delete
+                </PaperButton>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };

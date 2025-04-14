@@ -5,29 +5,20 @@
  * - New user registration with password creation
  * - Existing user authentication
  * - Account deletion functionality
- * - Themed UI presentation with Tamagui components
+ * - Themed UI presentation with React Native Paper components
  */
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/themeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { KeyboardAvoidingView, Platform } from 'react-native';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { PasswordInput } from '../components/PasswordInput';
 import { StatusBar } from 'expo-status-bar';
+import { Text as PaperText, Button as PaperButton } from 'react-native-paper';
 
 // Import Lucide icons
 import { Lock, LogIn, User, UserPlus } from 'lucide-react-native';
-
-// Import Tamagui components instead of Gluestack UI
-import { 
-  View, 
-  YStack, 
-  XStack, 
-  Separator, 
-  Text, 
-  Button
-} from 'tamagui';
 
 export default function App() {
   const { isDarkMode } = useTheme();
@@ -67,37 +58,35 @@ export default function App() {
       style={{ flex: 1 }}
     >
       <StatusBar style={isDarkMode ? 'light' : 'dark'} />
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        padding="$6"
-        backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
+      <View
+        className="flex-1 justify-center items-center p-6"
+        style={{ backgroundColor: isDarkMode ? '#121212' : '#F5F5F5' }}
       >
         <View
-          width="100%"
-          maxWidth={400}
-          padding="$8"
-          borderRadius="$4"
-          backgroundColor={isDarkMode ? '$cardDark' : '$cardLight'}
-          shadowColor={isDarkMode ? '$shadowDark' : '$shadowLight'}
-          shadowOpacity={0.2}
-          shadowRadius={10}
+          className="w-full max-w-md p-8 rounded-xl shadow-xl"
+          style={{
+            backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+            shadowColor: isDarkMode ? '#000000' : '#DDDDDD',
+            shadowOpacity: 0.8,
+            shadowRadius: 10,
+          }}
         >
-          <YStack space="$4" alignItems="center">
+          <View className="space-y-4 items-center">
             <View
-              borderRadius={25}
-              padding="$4"
-              backgroundColor={isDarkMode ? '$iconBackgroundDark' : '$iconBackgroundLight'}
+              className="rounded-full p-4"
+              style={{ backgroundColor: isDarkMode ? '#2A2A2A' : '#F0F0F0' }}
             >
               <User size={40} />
             </View>
-            <Text fontSize="$8" fontWeight="bold" color="$primary">
+            <PaperText className="text-4xl font-bold" style={{ color: '#3A59D1' }}>
               ChatLLM
-            </Text>
-            <Text fontSize="$6" textAlign="center" color={isDarkMode ? '$textDark' : '$textLight'}>
+            </PaperText>
+            <PaperText
+              className="text-xl text-center"
+              style={{ color: isDarkMode ? '#E0E0E0' : '#424242' }}
+            >
               {isNewUser ? 'Create Password' : 'Welcome Back'}
-            </Text>
+            </PaperText>
             <PasswordInput
               placeholder="Password"
               password={password}
@@ -113,35 +102,31 @@ export default function App() {
               />
             )}
             {error && (
-              <Text color="$error" textAlign="center">
+              <PaperText className="text-red-500 text-center">
                 {error}
-              </Text>
+              </PaperText>
             )}
-            <Button
+            <PaperButton
+              mode="contained"
               onPress={handleSubmit}
-              backgroundColor="$primary"
-              borderRadius="$4"
-              width="100%"
+              style={{ backgroundColor: '#3A59D1', borderRadius: 8, width: '100%' }}
+              labelStyle={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}
             >
-              <Text color="$buttonText" fontWeight="bold" fontSize="$4">
-                {isNewUser ? 'Create Password' : 'Login'}
-              </Text>
-            </Button>
+              {isNewUser ? 'Create Password' : 'Login'}
+            </PaperButton>
             {!isNewUser && !showDeleteConfirm && (
-              <Button
+              <PaperButton
+                mode="contained"
                 onPress={() => setShowDeleteConfirm(true)}
-                backgroundColor="$error"
-                borderRadius="$4"
-                width="100%"
+                style={{ backgroundColor: '#EF4444', borderRadius: 8, width: '100%' }}
+                labelStyle={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}
               >
-                <Text color="$buttonText" fontWeight="bold" fontSize="$4">
-                  Reset Everything
-                </Text>
-              </Button>
+                Reset Everything
+              </PaperButton>
             )}
-          </YStack>
+          </View>
         </View>
-      </YStack>
+      </View>
     </KeyboardAvoidingView>
   );
 }

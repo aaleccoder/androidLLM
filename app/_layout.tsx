@@ -10,111 +10,10 @@ import { useFonts } from "expo-font";
 import { Inter_400Regular } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
 import { globalEventEmitter } from "./ui/chat";
-import { SafeAreaView, TextInput, StyleSheet, ScrollView, StyleProp, TextStyle, ViewStyle } from "react-native";
+import { SafeAreaView, TextInput, StyleSheet, ScrollView, StyleProp, TextStyle, View, Modal } from "react-native";
 import { Eye, EyeOff, Save } from 'lucide-react-native';
-import { 
-  TamaguiProvider,
-  Sheet,
-  YStack,
-  XStack,
-  Text,
-  Button,
-  Switch,
-  View,
-  styled
-} from 'tamagui';
-import { config } from "../utils/config/tamagui.config";
+import { Text as PaperText, Button as PaperButton, Switch as PaperSwitch } from 'react-native-paper';
 import { TitleBar } from '../components/TitleBar';
-import type { GetProps } from '@tamagui/core';
-
-// Styled components for consistent theme usage
-const Container = styled(YStack, {
-  f: 1,
-  space: "$5",
-  name: "Container",
-  p: "$4",
-})
-
-const Card = styled(YStack, {
-  space: "$4",
-  br: "$6",
-  p: "$5",
-  name: "Card",
-  animation: 'bouncy',
-  pressStyle: {
-    scale: 0.98,
-  },
-  variants: {
-    type: {
-      settings: {
-        bg: '$backgroundStrong',
-        borderWidth: 1,
-        borderColor: '$borderColor',
-        shadowColor: '$shadowColor',
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 5,
-      }
-    }
-  }
-})
-
-const StyledTitle = styled(Text, {
-  fontSize: "$6",
-  fontWeight: "bold",
-  color: '$color',
-})
-
-type TitleProps = GetProps<typeof StyledTitle> & {
-  type?: 'section' | 'card'
-}
-
-function Title({ type, ...props }: TitleProps) {
-  return (
-    <StyledTitle
-      {...props}
-      fontSize={type === 'section' ? '$8' : type === 'card' ? '$5' : '$6'}
-      color={type === 'section' ? '$blue10' : '$color'}
-      mb={type === 'section' ? '$2' : type === 'card' ? '$1' : 0}
-    />
-  )
-}
-
-const Subtitle = styled(Text, {
-  fontSize: "$3",
-  color: '$gray11',
-  name: "Subtitle",
-  lineHeight: 20
-})
-
-const Divider = styled(XStack, {
-  height: 1,
-  bg: '$borderColor',
-  my: '$5',
-  opacity: 0.3,
-})
-
-const InputWrapper = styled(View, {
-  f: 1,
-  br: "$4",
-  p: "$2",
-  borderWidth: 2,
-  borderColor: '$gray7',
-  bg: '$gray3',
-  focusStyle: {
-    borderColor: '$blue8',
-    bg: '$gray2',
-    shadowColor: '$blue8',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  pressStyle: {
-    borderColor: '$blue8',
-    bg: '$gray2',
-  },
-  animation: 'quick',
-})
 
 // Create styles for TextInput
 const styles = StyleSheet.create({
@@ -133,8 +32,6 @@ const styles = StyleSheet.create({
   }
 });
 
-const MemoizedInputWrapper = memo(InputWrapper);
-
 interface SettingsInputProps {
   value: string;
   onChangeText: (text: string) => void;
@@ -147,7 +44,7 @@ interface SettingsInputProps {
   accessibilityLabel: string;
 }
 
-const SettingsInput = memo(({ 
+const SettingsInput = ({ 
   value, 
   onChangeText, 
   placeholder, 
@@ -159,18 +56,20 @@ const SettingsInput = memo(({
   accessibilityLabel 
 }: SettingsInputProps) => {
   const textColor = isDarkMode ? '#fff' : '#000';
+  const placeholderColor = isDarkMode ? '#666' : '#999';
   
   return (
     <TextInput
       style={[style, { 
         color: textColor,
         fontSize: 16,
-        height: multiline ? undefined : 48
+        height: multiline ? undefined : 48, 
+        textAlignVertical: multiline ? 'top' : 'center', 
       }]}
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor={isDarkMode ? '#666' : '#999'}
+      placeholderTextColor={placeholderColor}
       secureTextEntry={secureTextEntry}
       multiline={multiline}
       numberOfLines={numberOfLines}
@@ -178,7 +77,7 @@ const SettingsInput = memo(({
       accessibilityLabel={accessibilityLabel}
     />
   );
-});
+};
 
 type UiState = {
   showGeminiKey: boolean;
@@ -279,120 +178,82 @@ function SettingsContent({
   }, [isAuthenticated, data, formState, setShowSettings]);
 
   return (
-    <Sheet 
-      modal
-      open={true}
-      onOpenChange={setShowSettings}
-      snapPoints={[90]}
-      dismissOnSnapToBottom
-      animation="quick"
+    <Modal
+      visible={true}
+      onDismiss={() => setShowSettings(false)}
+      animationType="slide"
+      transparent={true}
     >
-      <Sheet.Overlay 
-        animation="quick"
-        enterStyle={{ opacity: 0 }}
-        exitStyle={{ opacity: 0 }}
-        opacity={0.7}
-      />
-      <Sheet.Frame
-        f={1}
-        space="$5"
-        br="$4"
-        animation="quick"
-        enterStyle={{ opacity: 0, scale: 0.95 }}
-        exitStyle={{ opacity: 0, scale: 0.95 }}
-      >
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-          <Container>
-            <XStack jc="space-between" ai="center" p="$4" borderBottomWidth={1} borderColor="$borderColor">
-              <Title type="section">Settings</Title>
-              <Button
-                size="$4"
-                circular
-                chromeless
-                icon={<Text fontSize={24}>×</Text>}
-                onPress={() => setShowSettings(false)}
-              />
-            </XStack>
+      <View className="flex-1 justify-end bg-zinc-800/50">
+        <View className="bg-zinc-50 dark:bg-zinc-800 rounded-t-2xl p-4">
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+            <View>
+              <View className="flex-row justify-between items-center border-b border-zinc-500 pb-4">
+                <PaperText className="text-2xl font-bold text-zinc-700 dark:text-zinc-100">Settings</PaperText>
+                <PaperButton onPress={() => setShowSettings(false)}>
+                  <></>
+                </PaperButton>
+              </View>
 
-            <Card type="settings">
-              <XStack jc="space-between" ai="center">
-                <YStack f={1} pr="$4">
-                  <Title type="card">Dark Mode</Title>
-                  <Subtitle>Toggle between light and dark theme</Subtitle>
-                </YStack>
-                <Switch
-                  size="$4"
-                  checked={isDarkMode}
-                  onCheckedChange={setIsDarkMode}
+              <View className="flex-row justify-between items-center py-4">
+                <View>
+                  <PaperText className="text-base text-zinc-700 dark:text-zinc-100">Dark Mode</PaperText>
+                  <PaperText className="text-sm text-zinc-500 dark:text-zinc-400">Toggle between light and dark theme</PaperText>
+                </View>
+                <PaperSwitch
+                  value={isDarkMode}
+                  onValueChange={setIsDarkMode}
                 />
-              </XStack>
-            </Card>
+              </View>
 
-            {isAuthenticated && (
-              <>
-                <Title type="section">API Keys</Title>
-                <Card type="settings">
-                  <YStack space="$4">
-                    <YStack space="$3">
-                      <Title type="card">Gemini API Key</Title>
-                      <XStack space="$2" ai="center">
-                        <MemoizedInputWrapper>
-                          <SettingsInput
-                            value={formState.geminiKey}
-                            onChangeText={(value) => handleInputChange('geminiKey', value)}
-                            placeholder="Enter Gemini API Key"
-                            secureTextEntry={!uiState.showGeminiKey}
-                            isDarkMode={isDarkMode}
-                            style={styles.input}
-                            accessibilityLabel="Gemini API Key input"
-                          />
-                        </MemoizedInputWrapper>
-                        <Button
-                          size="$4"
-                          circular
-                          chromeless
-                          icon={uiState.showGeminiKey ? <EyeOff size={22} /> : <Eye size={22} />}
-                          onPress={() => toggleVisibility('showGeminiKey')}
+              {isAuthenticated && (
+                <>
+                  <PaperText className="text-xl font-semibold text-zinc-700 dark:text-zinc-100 py-2">API Keys</PaperText>
+                  <View>
+                    <View className="mb-4">
+                      <PaperText className="text-lg text-zinc-700 dark:text-zinc-100">Gemini API Key</PaperText>
+                      <View className="flex-row items-center">
+                        <SettingsInput
+                          value={formState.geminiKey}
+                          onChangeText={(value: string) => handleInputChange('geminiKey', value)}
+                          placeholder="Enter Gemini API Key"
+                          secureTextEntry={!uiState.showGeminiKey}
+                          isDarkMode={isDarkMode}
+                          style={styles.input}
+                          accessibilityLabel="Gemini API Key input"
                         />
-                      </XStack>
-                    </YStack>
+                        <PaperButton icon={uiState.showGeminiKey ? "eye-off" : "eye"} onPress={() => toggleVisibility('showGeminiKey')}>
+                          <></>
+                        </PaperButton>
+                      </View>
+                    </View>
 
-                    <YStack space="$3">
-                      <Title type="card">Groq API Key</Title>
-                      <XStack space="$2" ai="center">
-                        <MemoizedInputWrapper>
-                          <SettingsInput
-                            value={formState.groqKey}
-                            onChangeText={(value) => handleInputChange('groqKey', value)}
-                            placeholder="Enter Groq API Key"
-                            secureTextEntry={!uiState.showGroqKey}
-                            isDarkMode={isDarkMode}
-                            style={styles.input}
-                            accessibilityLabel="Groq API Key input"
-                          />
-                        </MemoizedInputWrapper>
-                        <Button
-                          size="$4"
-                          circular
-                          chromeless
-                          icon={uiState.showGroqKey ? <EyeOff size={22} /> : <Eye size={22} />}
-                          onPress={() => toggleVisibility('showGroqKey')}
+                    <View className="mb-4">
+                      <PaperText className="text-lg text-zinc-700 dark:text-zinc-100">Groq API Key</PaperText>
+                      <View className="flex-row items-center">
+                        <SettingsInput
+                          value={formState.groqKey}
+                          onChangeText={(value: string) => handleInputChange('groqKey', value)}
+                          placeholder="Enter Groq API Key"
+                          secureTextEntry={!uiState.showGroqKey}
+                          isDarkMode={isDarkMode}
+                          style={styles.input}
+                          accessibilityLabel="Groq API Key input"
                         />
-                      </XStack>
-                    </YStack>
-                  </YStack>
-                </Card>
+                        <PaperButton icon={uiState.showGroqKey ? "eye-off" : "eye"} onPress={() => toggleVisibility('showGroqKey')}>
+                          <></>
+                        </PaperButton>
+                      </View>
+                    </View>
+                  </View>
 
-                <Divider />
-
-                <Title type="section">Assistant Settings</Title>
-                <Card type="settings">
-                  <YStack space="$3">
-                    <Title type="card">Custom System Prompt</Title>
-                    <MemoizedInputWrapper>
+                  <View className="py-2">
+                    <PaperText className="text-xl font-semibold text-zinc-700 dark:text-zinc-100">Assistant Settings</PaperText>
+                    <View>
+                      <PaperText className="text-lg text-zinc-700 dark:text-zinc-100">Custom System Prompt</PaperText>
                       <SettingsInput
                         value={formState.customPrompt}
-                        onChangeText={(value) => handleInputChange('customPrompt', value)}
+                        onChangeText={(value: string) => handleInputChange('customPrompt', value)}
                         placeholder="Optional: Define assistant's behavior"
                         multiline={true}
                         numberOfLines={4}
@@ -400,74 +261,53 @@ function SettingsContent({
                         style={styles.multilineInput}
                         accessibilityLabel="Custom system prompt input"
                       />
-                    </MemoizedInputWrapper>
-                    <Subtitle>
-                      This prompt guides the assistant's responses. Leave empty for default behavior.
-                    </Subtitle>
-                  </YStack>
-                </Card>
+                      <PaperText className="text-sm text-zinc-500 dark:text-zinc-400">
+                        This prompt guides the assistant's responses. Leave empty for default behavior.
+                      </PaperText>
+                    </View>
+                  </View>
 
-                <Divider />
-
-                {uiState.showPasswordInput && (
-                  <Card type="settings">
-                    <YStack space="$3">
-                      <Title type="card">Enter password to save changes</Title>
-                      <XStack space="$2" ai="center">
-                        <MemoizedInputWrapper>
-                          <SettingsInput
-                            value={formState.password}
-                            onChangeText={(value) => handleInputChange('password', value)}
-                            placeholder="Password"
-                            secureTextEntry={!uiState.showPassword}
-                            isDarkMode={isDarkMode}
-                            style={styles.input}
-                            accessibilityLabel="Password input for saving settings"
-                          />
-                        </MemoizedInputWrapper>
-                        <Button
-                          size="$4"
-                          circular
-                          chromeless
-                          icon={uiState.showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
-                          onPress={() => toggleVisibility('showPassword')}
+                  {uiState.showPasswordInput && (
+                    <View className="py-2">
+                      <PaperText className="text-lg text-zinc-700 dark:text-zinc-100">Enter password to save changes</PaperText>
+                      <View className="flex-row items-center">
+                        <SettingsInput
+                          value={formState.password}
+                          onChangeText={(value: string) => handleInputChange('password', value)}
+                          placeholder="Password"
+                          secureTextEntry={!uiState.showPassword}
+                          isDarkMode={isDarkMode}
+                          style={styles.input}
+                          accessibilityLabel="Password input for saving settings"
                         />
-                      </XStack>
+                        <PaperButton icon={uiState.showPassword ? "eye-off" : "eye"} onPress={() => toggleVisibility('showPassword')}>
+                          <></>
+                        </PaperButton>
+                      </View>
                       {uiState.saveError && (
-                        <Text col="$red10" fontSize="$3">{uiState.saveError}</Text>
+                        <PaperText className="text-red-500">{uiState.saveError}</PaperText>
                       )}
-                    </YStack>
-                  </Card>
-                )}
+                    </View>
+                  )}
 
-                <Button
-                  size="$5"
-                  themeInverse
-                  icon={<Save size={20} />}
-                  onPress={handleSaveSettings}
-                  disabled={uiState.isSaving}
-                  o={uiState.isSaving ? 0.5 : 1}
-                  mx="$4"
-                  mb="$4"
-                  br="$4"
-                >
-                  {uiState.isSaving ? 'Saving...' : 'Save Settings'}
-                </Button>
-              </>
-            )}
+                  <PaperButton
+                    onPress={handleSaveSettings}
+                    disabled={uiState.isSaving}
+                  >
+                    {uiState.isSaving ? 'Saving...' : 'Save Settings'}
+                  </PaperButton>
+                </>
+              )}
 
-            <Divider />
-
-            <Card type="settings">
-              <YStack space="$2">
-                <Title type="card">About ChatLLM</Title>
-                <Subtitle>Version 1.0.0</Subtitle>
-              </YStack>
-            </Card>
-          </Container>
-        </ScrollView>
-      </Sheet.Frame>
-    </Sheet>
+              <View className="py-2">
+                <PaperText className="text-lg text-zinc-700 dark:text-zinc-100">About ChatLLM</PaperText>
+                <PaperText className="text-sm text-zinc-500 dark:text-zinc-400">Version 1.0.0</PaperText>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -497,58 +337,56 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <TamaguiProvider config={config} defaultTheme={isDarkMode ? 'dark' : 'light'}>
-      <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode), tamaguiConfig: config }}>
-        <DataProvider>
-          <AuthProvider>
-            <View f={1}>
-              <SafeAreaView style={{ flex: 1 }}>
-                <Stack
-                  screenOptions={{
-                    header: ({ route }: { route: { name: string } }) => {
-                      const isChat = route.name === 'ui/chat';
-                      return (
-                        <TitleBar
-                          showMenuButton={isChat}
-                          isDarkMode={isDarkMode}
-                          setIsDarkMode={setIsDarkMode}
-                          setShowSettings={isChat ? setShowSettings : undefined}
-                        />
-                      );
-                    },
+    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode) }}>
+      <DataProvider>
+        <AuthProvider>
+          <View style={{ flex: 1 }}>
+            <SafeAreaView style={{ flex: 1 }}>
+              <Stack
+                screenOptions={{
+                  header: ({ route }: { route: { name: string } }) => {
+                    const isChat = route.name === 'ui/chat';
+                    return (
+                      <TitleBar
+                        showMenuButton={isChat}
+                        isDarkMode={isDarkMode}
+                        setIsDarkMode={setIsDarkMode}
+                        setShowSettings={isChat ? setShowSettings : undefined}
+                      />
+                    );
+                  },
+                }}
+              >
+                <Stack.Screen
+                  name="index"
+                  options={{
+                    headerShown: true,
+                    headerBackVisible: false,
+                    gestureEnabled: false,
+                    animation: "none",
                   }}
-                >
-                  <Stack.Screen
-                    name="index"
-                    options={{
-                      headerShown: true,
-                      headerBackVisible: false,
-                      gestureEnabled: false,
-                      animation: "none",
-                    }}
-                  />
-                  <Stack.Screen
-                    name="ui/chat"
-                    options={{
-                      headerShown: true,
-                      headerBackVisible: false,
-                      gestureEnabled: false,
-                      animation: "none",
-                    }}
-                  />
-                </Stack>
-                {showSettings && (
-                  <SettingsContent
-                    isDarkMode={isDarkMode}
-                    setIsDarkMode={setIsDarkMode}
-                    setShowSettings={setShowSettings}
-                  />
-                )}
-              </SafeAreaView>
-            </View>
-          </AuthProvider>
-        </DataProvider>
-      </ThemeContext.Provider>
-    </TamaguiProvider>
+                />
+                <Stack.Screen
+                  name="ui/chat"
+                  options={{
+                    headerShown: true,
+                    headerBackVisible: false,
+                    gestureEnabled: false,
+                    animation: "none",
+                  }}
+                />
+              </Stack>
+              {showSettings && (
+                <SettingsContent
+                  isDarkMode={isDarkMode}
+                  setIsDarkMode={setIsDarkMode}
+                  setShowSettings={setShowSettings}
+                />
+              )}
+            </SafeAreaView>
+          </View>
+        </AuthProvider>
+      </DataProvider>
+    </ThemeContext.Provider>
   );
 }

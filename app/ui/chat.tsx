@@ -11,8 +11,7 @@
  * - Chat history with thread management
  */
 import React, { useState, useEffect, useRef } from "react";
-import { BackHandler, AppState, View } from 'react-native';
-import { ScrollView } from 'tamagui';
+import { BackHandler, AppState, View, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../context/themeContext';
 import { ProtectedRoute, useAuth } from "../../hooks/useAuth";

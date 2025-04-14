@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { View } from 'tamagui';
+import { View } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import Markdown from 'react-native-markdown-display';
 
@@ -14,7 +14,7 @@ interface ChatMessageProps {
 export const ChatMessage = ({ content, role, isLast = false, isGenerating = false }: ChatMessageProps) => {
   const { isDarkMode, theme } = useTheme();
   const isUser = role === 'user';
-  
+
   // Define markdown styles directly here until we fix the markdownStyles utility
   const mdStyles = {
     user: StyleSheet.create({
@@ -100,7 +100,7 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
       }
     })
   };
-  
+
   return (
     <View style={[
       styles.messageContainer,

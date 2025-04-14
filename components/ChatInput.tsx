@@ -1,21 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { Keyboard, TextInput, View as RNView, StyleSheet } from 'react-native';
+import { Keyboard, TextInput, View as RNView, StyleSheet, View } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import * as Haptics from 'expo-haptics';
 import { GeminiModel } from '../services/geminiService';
+import { Text as PaperText, Button as PaperButton, Modal } from 'react-native-paper';
 
 // Import specific icons from lucide-react-native
 import { Send, X, Zap, Image } from "lucide-react-native";
-
-// Import Tamagui components
-import { 
-  View, 
-  YStack, 
-  XStack, 
-  Text, 
-  Button, 
-  Sheet
-} from 'tamagui';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -25,17 +16,17 @@ interface ChatInputProps {
   onModelChange: (model: GeminiModel) => void;
 }
 
-export const ChatInput = ({ 
-  onSend, 
-  isGenerating = false, 
+const ChatInput = ({
+  onSend,
+  isGenerating = false,
   onStopGeneration,
   currentModel,
-  onModelChange
+  onModelChange,
 }: ChatInputProps) => {
   const [input, setInput] = useState("");
   const { isDarkMode, theme } = useTheme();
   const [showModelMenu, setShowModelMenu] = useState(false);
-  
+
   const handleSend = useCallback(() => {
     if (input.trim()) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -62,7 +53,7 @@ export const ChatInput = ({
     if (!model) {
       return 'Gemini 1.5 Pro'; // Default fallback value
     }
-    
+
     switch (model) {
       case 'gemini-2.0-flash':
         return 'Gemini 2.0 Flash';
@@ -96,27 +87,27 @@ export const ChatInput = ({
   };
 
   return (
-    <RNView 
+    <RNView
       style={[
         styles.container,
         dynamicStyles.container
       ]}
     >
-      <YStack space="$2">
-        <Button
+      <RNView className="space-y-2">
+        <PaperButton
           onPress={() => setShowModelMenu(true)}
           style={[styles.modelButton, dynamicStyles.modelButton]}
         >
-          <XStack space="$2" alignItems="center">
+          <RNView className="flex-row items-center space-x-2">
             <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-            <Text style={dynamicStyles.modelButtonText} fontSize="$3">
+            <PaperText style={[dynamicStyles.modelButtonText, {fontSize: 16}]} >
               {getModelDisplayName(currentModel)}
-            </Text>
-          </XStack>
-        </Button>
-        
-        <XStack space="$3" alignItems="center">
-          <RNView 
+            </PaperText>
+          </RNView>
+        </PaperButton>
+
+        <RNView className="flex-row items-center space-x-3">
+          <RNView
             style={[
               styles.inputContainer,
               dynamicStyles.inputContainer
@@ -132,78 +123,72 @@ export const ChatInput = ({
               maxLength={2000}
             />
             {isGenerating ? (
-              <Button
+              <PaperButton
                 onPress={handleStop}
                 style={styles.actionButton}
-                backgroundColor="#ef4444"
+                buttonColor="#ef4444"
               >
                 <X size={20} color="#FFFFFF" />
-              </Button>
+              </PaperButton>
             ) : hasInput ? (
-              <Button
+              <PaperButton
                 onPress={handleSend}
                 style={styles.actionButton}
-                backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
+                buttonColor={isDarkMode ? '#262626' : '#f5f5f5'}
               >
                 <Send size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-              </Button>
+              </PaperButton>
             ) : (
-              <Button
+              <PaperButton
                 onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
                 style={styles.actionButton}
-                backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
+                buttonColor={isDarkMode ? '#262626' : '#f5f5f5'}
               >
                 <Image size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-              </Button>
+              </PaperButton>
             )}
           </RNView>
-        </XStack>
-      </YStack>
+        </RNView>
+      </RNView>
 
-      <Sheet
-        modal
-        open={showModelMenu}
-        onOpenChange={(open: any) => setShowModelMenu(open ? true : false)}
-        snapPoints={[25]}
-        position={0}
-        dismissOnSnapToBottom
+      <Modal
+        visible={showModelMenu}
+        onDismiss={() => setShowModelMenu(false)}
       >
-        <Sheet.Overlay />
-        <Sheet.Frame padding="$4">
-          <YStack space="$4">
-            <Button
-              onPress={() => handleModelChange('gemini-2.0-flash')}
-              backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
-              borderRadius="$4"
-            >
-              <XStack space="$2" alignItems="center">
-                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                <Text color={isDarkMode ? '#ffffff' : '#171717'}>Gemini 2.0 Flash</Text>
-              </XStack>
-            </Button>
-            <Button
-              onPress={() => handleModelChange('gemini-1.5-pro')}
-              backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
-              borderRadius="$4"
-            >
-              <XStack space="$2" alignItems="center">
-                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                <Text color={isDarkMode ? '#ffffff' : '#171717'}>Gemini 1.5 Pro</Text>
-              </XStack>
-            </Button>
-            <Button
-              onPress={() => handleModelChange('gemini-2.5-pro')}
-              backgroundColor={isDarkMode ? '#262626' : '#f5f5f5'}
-              borderRadius="$4"
-            >
-              <XStack space="$2" alignItems="center">
-                <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                <Text color={isDarkMode ? '#ffffff' : '#171717'}>Gemini 2.5 Pro</Text>
-              </XStack>
-            </Button>
-          </YStack>
-        </Sheet.Frame>
-      </Sheet>
+        <RNView className="flex-1 justify-end bg-zinc-800/50">
+          <RNView className="bg-zinc-50 dark:bg-zinc-800 rounded-t-2xl p-4">
+            <RNView className="space-y-4">
+              <PaperButton
+                onPress={() => handleModelChange('gemini-2.0-flash')}
+                style={{ borderRadius: 8 }}
+              >
+                <RNView className="flex-row items-center space-x-2">
+                  <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                  <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>Gemini 2.0 Flash</PaperText>
+                </RNView>
+              </PaperButton>
+              <PaperButton
+                onPress={() => handleModelChange('gemini-1.5-pro')}
+                style={{ borderRadius: 8 }}
+              >
+                <RNView className="flex-row items-center space-x-2">
+                  <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                  <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>Gemini 1.5 Pro</PaperText>
+                </RNView>
+              </PaperButton>
+              <PaperButton
+                onPress={() => handleModelChange('gemini-2.5-pro')}
+                style={{ borderRadius: 8 }}
+              >
+                <RNView className="flex-row items-center space-x-2">
+                  <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                  <PaperText style={{ color: isDarkMode ? '#ffffff' : '#171717' }}>Gemini 2.5 Pro</PaperText>
+                </RNView>
+              </PaperButton>
+            </RNView>
+          </RNView>
+        </RNView>
+      </Modal>
     </RNView>
   );
 };
@@ -246,3 +231,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   }
 });
+
+export default ChatInput;
