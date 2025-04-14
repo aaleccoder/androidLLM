@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScrollView, Animated, Pressable } from 'react-native';
+import { ScrollView, Animated, Pressable, TouchableWithoutFeedback } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import { ChatThread, useData } from '../context/dataContext';
 import { useAuth } from '../hooks/useAuth';
@@ -16,8 +16,22 @@ import {
   Text,
   Button,
   Sheet,
-  H3
+  H3,
+  styled
 } from 'tamagui';
+
+const SidebarContainer = styled(Animated.View, {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  bottom: 0,
+  width: 300,
+  zIndex: 10,
+  shadowColor: '#000',
+  shadowOffset: { width: 2, height: 0 },
+  shadowOpacity: 0.2,
+  shadowRadius: 3,
+});
 
 interface ChatSidebarProps {
   isVisible: boolean;
@@ -40,25 +54,32 @@ export const ChatSidebar = ({
   const { data, deleteChatThread } = useData();
   const { getCurrentPassword } = useAuth();
   const [deleteConfirmThreadId, setDeleteConfirmThreadId] = useState<string | null>(null);
-  const slideAnim = useRef(new Animated.Value(-300)).current;
-  const [slideAnimValue, setSlideAnimValue] = useState(-300);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const translateX = useRef(new Animated.Value(-300)).current;
 
   useEffect(() => {
-    const listener = slideAnim.addListener(({ value }) => setSlideAnimValue(value));
-    return () => slideAnim.removeListener(listener);
-  }, [slideAnim]);
+    if (isVisible) {
+      Animated.timing(translateX, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(translateX, {
+        toValue: -300,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isVisible]);
 
-  useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: isVisible ? 0 : -300,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [isVisible, slideAnim]);
-  
-  const chatThreads = data?.chatThreads 
-    ? [...data.chatThreads].sort((a, b) => b.updatedAt - a.updatedAt) 
-    : [];
+  if (!isVisible) return null;
+
+  const handlePressOverlay = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onClose();
+  };
 
   const handleSelectThread = (threadId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -79,21 +100,33 @@ export const ChatSidebar = ({
 
   const handleDeleteThread = async () => {
     if (!deleteConfirmThreadId) return;
-    
+
     try {
       const password = getCurrentPassword();
       if (!password) {
         console.error('Cannot delete thread: No password available');
         return;
       }
-      
+
       await deleteChatThread(deleteConfirmThreadId, password);
       setDeleteConfirmThreadId(null);
+
+      // Provide success feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // If this was the active thread or it was the last thread, close the sidebar
+      if (deleteConfirmThreadId === currentThreadId || (data?.chatThreads || []).length <= 1) {
+        onClose();
+      }
     } catch (error) {
       console.error('Error deleting thread:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmThreadId(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const formatDate = (timestamp: number): string => {
@@ -101,7 +134,7 @@ export const ChatSidebar = ({
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
       return 'Today';
     } else if (date.toDateString() === yesterday.toDateString()) {
@@ -111,115 +144,133 @@ export const ChatSidebar = ({
     }
   };
 
-  if (!isVisible && slideAnimValue <= -300) return null;
+  const chatThreads = data?.chatThreads
+    ? [...data.chatThreads].sort((a, b) => b.updatedAt - a.updatedAt)
+    : [];
+
+  const currentChat = data?.chatThreads?.find(thread => thread.id === currentThreadId);
+  const canCreateNewChat = !currentChat || currentChat.messages.length > 0;
 
   return (
     <>
-      <Animated.View
-        style={{
-          transform: [{ translateX: slideAnim }],
-          elevation: 4,
-          shadowColor: '#000',
-          shadowOffset: { width: 2, height: 0 },
-          shadowOpacity: 0.2,
-          shadowRadius: 3,
-          margin: 0,
-          padding: 0,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width: 300,
-          zIndex: 10,
-          backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5'
-        }}
-      >
-        <View padding="$2" backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}>
-          <Button
-            onPress={handleNewChat}
-            backgroundColor={isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'}
-            borderRadius="$4"
-            size="$4"
-          >
-            <XStack space="$2" alignItems="center">
-              <Plus size={18} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-              <Text color={isDarkMode ? '$textLight' : '$textDark'}>New Chat</Text>
-            </XStack>
-          </Button>
-        </View>
+      <TouchableWithoutFeedback onPress={handlePressOverlay}>
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 9,
+          }}
+        />
+      </TouchableWithoutFeedback>
 
-        {chatThreads.length === 0 ? (
-          <View padding="$4">
-            <Text
-              textAlign="center"
-              color={isDarkMode ? '$textMuted' : '$textMuted'}
+      <SidebarContainer 
+        style={{ 
+          transform: [{ translateX }],
+        }} 
+      >
+        <View
+          backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
+          f={1}
+        >
+          <YStack space="$2" padding="$2">
+            <Button
+              onPress={handleNewChat}
+              backgroundColor={isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'}
+              borderRadius="$4"
+              size="$3"
+              disabled={!canCreateNewChat}
+              opacity={canCreateNewChat ? 1 : 0.5}
+              pressStyle={{ scale: 0.97 }}
             >
-              No chat history yet. Start a new conversation!
-            </Text>
-          </View>
-        ) : (
-          <ScrollView>
-            <YStack space="$2" padding="$2">
-              {chatThreads.map(thread => {
-                const isSelected = thread.id === currentThreadId;
-                return (
-                  <Pressable
-                    key={thread.id}
-                    onPress={() => handleSelectThread(thread.id)}
-                  >
-                    <View
-                      backgroundColor={isSelected 
-                        ? isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'
-                        : 'transparent'
-                      }
-                      borderRadius="$4"
-                      borderLeftWidth={4}
-                      borderLeftColor={isSelected ? '$primary' : 'transparent'}
-                      padding="$3"
-                    >
-                      <XStack space="$2" alignItems="center" justifyContent="space-between">
-                        <YStack flex={1}>
-                          <Text
-                            color={isSelected 
-                              ? '$primary'
-                              : isDarkMode ? '$textLight' : '$textDark'
-                            }
-                            numberOfLines={1}
-                            marginBottom="$1"
-                          >
-                            {thread.title}
-                          </Text>
-                          <Text
-                            fontSize="$2"
-                            color={isDarkMode ? '$textMuted' : '$textMuted'}
-                          >
-                            {formatDate(thread.updatedAt)}
-                          </Text>
-                        </YStack>
-                        {enableEditing && (
-                          <Button
-                            size="$3"
-                            circular
-                            backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
-                            onPress={() => confirmDeleteThread(thread.id)}
-                          >
-                            <Trash size={16} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-                          </Button>
-                        )}
-                      </XStack>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </YStack>
-          </ScrollView>
-        )}
-      </Animated.View>
-      
+              <XStack space="$2" alignItems="center">
+                <Plus size={16} color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                <Text color={isDarkMode ? '$textLight' : '$textDark'} fontSize="$3">New Chat</Text>
+              </XStack>
+            </Button>
+
+            {chatThreads.length === 0 ? (
+              <YStack f={1} jc="center" ai="center" padding="$2">
+                <Text
+                  textAlign="center"
+                  color={isDarkMode ? '$textMuted' : '$textMuted'}
+                  fontSize="$2"
+                >
+                  No chat history yet. Start a new conversation!
+                </Text>
+              </YStack>
+            ) : (
+              <ScrollView>
+                <YStack space="$1">
+                  {chatThreads.map(thread => {
+                    const isSelected = thread.id === currentThreadId;
+                    return (
+                      <Pressable
+                        key={thread.id}
+                        onPress={() => handleSelectThread(thread.id)}
+                      >
+                        <View
+                          backgroundColor={isSelected
+                            ? isDarkMode ? '$backgroundSecondary' : '$backgroundSecondary'
+                            : 'transparent'
+                          }
+                          borderRadius="$2"
+                          borderLeftWidth={2}
+                          borderLeftColor={isSelected ? '$primary' : 'transparent'}
+                          paddingVertical="$2"
+                          paddingHorizontal="$3"
+                          pressStyle={{ scale: 0.98 }}
+                        >
+                          <XStack space="$2" alignItems="center" justifyContent="space-between">
+                            <YStack flex={1} space="$0">
+                              <Text
+                                color={isSelected
+                                  ? '$primary'
+                                  : isDarkMode ? '$textLight' : '$textDark'
+                                }
+                                numberOfLines={1}
+                                fontSize="$3"
+                                fontWeight={isSelected ? "500" : "400"}
+                              >
+                                {thread.title}
+                              </Text>
+                              <Text
+                                fontSize="$1"
+                                color={isDarkMode ? '$textMuted' : '$textMuted'}
+                              >
+                                {formatDate(thread.updatedAt)}
+                              </Text>
+                            </YStack>
+                            {enableEditing && (
+                              <Button
+                                size="$2"
+                                padding="$1"
+                                backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
+                                onPress={() => confirmDeleteThread(thread.id)}
+                                pressStyle={{ scale: 0.95 }}
+                              >
+                                <Trash size={14} color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                              </Button>
+                            )}
+                          </XStack>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </YStack>
+              </ScrollView>
+            )}
+          </YStack>
+        </View>
+      </SidebarContainer>
+
       <Sheet
         modal
         open={!!deleteConfirmThreadId}
-        onOpenChange={() => setDeleteConfirmThreadId(null)}
+        onOpenChange={handleCancelDelete}
         snapPoints={[40]}
         dismissOnSnapToBottom
       >
@@ -234,7 +285,7 @@ export const ChatSidebar = ({
               <Button
                 flex={1}
                 backgroundColor={isDarkMode ? '$backgroundDark' : '$backgroundLight'}
-                onPress={() => setDeleteConfirmThreadId(null)}
+                onPress={handleCancelDelete}
               >
                 Cancel
               </Button>

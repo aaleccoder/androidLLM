@@ -90,7 +90,7 @@ export default function App() {
               padding="$4"
               backgroundColor={isDarkMode ? '$iconBackgroundDark' : '$iconBackgroundLight'}
             >
-              <User size={40} color="$primary" />
+              <User size={40} />
             </View>
             <Text fontSize="$8" fontWeight="bold" color="$primary">
               ChatLLM
@@ -121,22 +121,20 @@ export default function App() {
               onPress={handleSubmit}
               backgroundColor="$primary"
               borderRadius="$4"
-              padding="$3"
               width="100%"
             >
-              <Text color="$buttonText" fontWeight="bold">
+              <Text color="$buttonText" fontWeight="bold" fontSize="$4">
                 {isNewUser ? 'Create Password' : 'Login'}
               </Text>
             </Button>
             {!isNewUser && !showDeleteConfirm && (
               <Button
                 onPress={() => setShowDeleteConfirm(true)}
-                backgroundColor="$secondary"
+                backgroundColor="$error"
                 borderRadius="$4"
-                padding="$3"
                 width="100%"
               >
-                <Text color="$buttonText" fontWeight="bold">
+                <Text color="$buttonText" fontWeight="bold" fontSize="$4">
                   Reset Everything
                 </Text>
               </Button>

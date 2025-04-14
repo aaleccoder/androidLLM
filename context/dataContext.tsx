@@ -160,14 +160,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
    * Deletes a chat thread
    */
   const deleteChatThread = async (threadId: string, password: string) => {
+    console.log("here");
     if (!data) throw new Error('No data loaded');
     
+    // Find if there's a thread to delete
+    const threadToDelete = data.chatThreads.find(thread => thread.id === threadId);
+    if (!threadToDelete) {
+      throw new Error('Thread not found');
+    }
+    
+    // Filter out the deleted thread
     const updatedThreads = data.chatThreads.filter(thread => thread.id !== threadId);
     
-    // Select a new active thread if needed
+    // Handle active thread management
     let activeThreadId = data.activeThreadId;
     if (activeThreadId === threadId) {
-      activeThreadId = updatedThreads.length > 0 ? updatedThreads[0].id : undefined;
+      // If we're deleting the active thread, set the most recent thread as active
+      // or undefined if no threads remain
+      activeThreadId = updatedThreads.length > 0 ? 
+        updatedThreads.sort((a, b) => b.updatedAt - a.updatedAt)[0].id : 
+        undefined;
     }
     
     const updatedData = {
@@ -176,6 +188,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       activeThreadId
     };
     
+    // Save the updated data
     await saveData(updatedData, password);
   };
 

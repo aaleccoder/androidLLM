@@ -23,6 +23,7 @@ import { geminiService, GeminiModel } from '../../services/geminiService';
 import { useData, Message as DataMessage, ChatThread } from '../../context/dataContext';
 import * as Haptics from 'expo-haptics';
 import { ChatSidebar } from '../../components/ChatSidebar';
+import { Welcome } from '../../components/Welcome';
 
 // Create a global event emitter for cross-component communication
 import { EventEmitter } from 'events';
@@ -40,13 +41,7 @@ export default function Chat() {
   const { data, createChatThread, updateChatThread, setActiveThread, saveData } = useData();
   const { getCurrentPassword } = useAuth();
 
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      isUser: false, 
-      text: "",
-      timestamp: Date.now()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [apiKeySet, setApiKeySet] = useState(false);
@@ -54,6 +49,7 @@ export default function Chat() {
   const [currentThreadId, setCurrentThreadId] = useState<string | undefined>(data?.activeThreadId);
   const [editingEnabled, setEditingEnabled] = useState(false);
   const [currentModel, setCurrentModel] = useState<GeminiModel>(geminiService.getCurrentModel());
+  const [showWelcome, setShowWelcome] = useState(true);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const navigation = useNavigation();
@@ -81,9 +77,14 @@ export default function Chat() {
           text: msg.text,
           timestamp: msg.timestamp
         })));
+        setShowWelcome(false);
         setCurrentThreadId(activeThread.id);
       } else if (!activeThread) {
-        handleNewChat();
+        // Reset the state when the active thread is deleted
+        setMessages([]);
+        setCurrentThreadId(undefined);
+        setShowWelcome(true);
+        geminiService.resetChat();
       }
     }
   }, [data]);
@@ -256,6 +257,8 @@ export default function Chat() {
       await handleNewChat();
     }
 
+    setShowWelcome(false);
+
     if (!apiKeySet) {
       setMessages(prev => [
         ...prev, 
@@ -270,7 +273,6 @@ export default function Chat() {
     }
     
     setMessages(prev => [...prev, { isUser: true, text: message, timestamp: Date.now() }]);
-    
     setMessages(prev => [...prev, { isUser: false, text: '', timestamp: Date.now(), isStreaming: true }]);
     
     setIsLoading(true);
@@ -332,21 +334,25 @@ export default function Chat() {
       }}>
         <StatusBar style={isDarkMode ? "light" : "dark"}/>
         <View style={{ flex: 1 }}>
-          <ScrollView
-            ref={scrollViewRef}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-          >
-            {messages.map((message, index) => (
-              <ChatMessage 
-                key={index}
-                content={message.text}
-                role={message.isUser ? 'user' : 'assistant'}
-                isLast={index === messages.length - 1}
-                isGenerating={message.isStreaming}
-              />
-            ))}
-          </ScrollView>
+          {showWelcome ? (
+            <Welcome />
+          ) : (
+            <ScrollView
+              ref={scrollViewRef}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+            >
+              {messages.map((message, index) => (
+                <ChatMessage 
+                  key={index}
+                  content={message.text}
+                  role={message.isUser ? 'user' : 'assistant'}
+                  isLast={index === messages.length - 1}
+                  isGenerating={message.isStreaming}
+                />
+              ))}
+            </ScrollView>
+          )}
           
           <ChatInput 
             onSend={handleSend}

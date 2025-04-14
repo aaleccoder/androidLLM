@@ -22,6 +22,7 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
         color: "#FFFFFF",
         fontSize: 16,
         lineHeight: 24,
+        fontWeight: '500', // Make user messages slightly bolder
       },
       heading1: {
         color: "#FFFFFF",
@@ -62,6 +63,7 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
         color: isDarkMode ? "#FFFFFF" : "#000000",
         fontSize: 16,
         lineHeight: 24,
+        fontWeight: '400', // Keep assistant messages regular weight
       },
       heading1: {
         color: isDarkMode ? "#FFFFFF" : "#000000",
@@ -103,8 +105,32 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
     <View style={[
       styles.messageContainer,
       isUser
-        ? [styles.userMessage, { backgroundColor: isDarkMode ? '#3A59D1' : '#d1e3ff' }]
-        : [styles.assistantMessage, { backgroundColor: isDarkMode ? '#333' : '#f5f5f5' }],
+        ? [styles.userMessage, { 
+            backgroundColor: isDarkMode ? '#3A59D1' : '#3A59D1',
+            borderTopRightRadius: 4,
+            borderBottomRightRadius: 4,
+            shadowColor: isDarkMode ? '#3A59D1' : '#3A59D1',
+            shadowOffset: { width: 1, height: 2 },
+            shadowOpacity: 0.4,
+            shadowRadius: 4,
+            elevation: 4,
+            borderLeftWidth: 0,
+            marginLeft: 40 // Add margin to push user messages to the right
+          }]
+        : [styles.assistantMessage, { 
+            backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF',
+            borderTopLeftRadius: 4,
+            borderBottomLeftRadius: 4,
+            shadowColor: isDarkMode ? '#000' : '#ccc',
+            shadowOffset: { width: -1, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 3,
+            elevation: 2,
+            borderRightWidth: 0,
+            marginRight: 40, // Add margin to push assistant messages to the left
+            borderLeftWidth: 3,
+            borderLeftColor: isDarkMode ? '#3A59D1' : '#3A59D1' // Add accent line
+          }],
     ]}>
       {isUser ? (
         <View style={styles.textContent}>
@@ -136,9 +162,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16, 
     paddingVertical: 12,
-    marginVertical: 4,
+    marginVertical: 6, // Increased vertical spacing between messages
     maxWidth: '85%',
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   userMessage: {
     alignSelf: 'flex-end',
