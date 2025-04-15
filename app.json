@@ -33,7 +33,6 @@
           ]
         }
       ],
-      "expo-sqlite",
       "expo-secure-store"
     ],
     "experiments": {

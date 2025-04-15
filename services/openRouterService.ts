@@ -1,15 +1,12 @@
 /**
  * OpenRouter API Service
  * 
- * Service worker for interacting with OpenRouter API via OpenAI client
+ * Service worker for interacting with OpenRouter API
  * Handles:
  * - API configuration and initialization
- * - Message generation with streaming support
+ * - Message generation
  * - Context management
- * - Model selection
  */
-import OpenAI from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/resources';
 
 // Default system prompt is empty unless user sets a custom one
 export const DEFAULT_SYSTEM_PROMPT = '';
@@ -17,35 +14,183 @@ export const DEFAULT_SYSTEM_PROMPT = '';
 // History window size for context management
 const HISTORY_WINDOW_SIZE = 10;
 
+// --- OpenRouter API Types ---
+
+export type ORMessage =
+  | {
+      role: 'user' | 'assistant' | 'system';
+      content: string | ORContentPart[];
+      name?: string;
+    }
+  | {
+      role: 'tool';
+      content: string;
+      tool_call_id: string;
+      name?: string;
+    };
+
+export type ORContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: string } };
+
+export interface ORRequest {
+  messages?: ORMessage[];
+  prompt?: string;
+  model?: string;
+  response_format?: { type: 'json_object' };
+  stop?: string | string[];
+  stream?: boolean;
+  max_tokens?: number;
+  temperature?: number;
+  tools?: ORTool[];
+  tool_choice?: ORToolChoice;
+  seed?: number;
+  top_p?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  repetition_penalty?: number;
+  logit_bias?: { [key: number]: number };
+  top_logprobs?: number;
+  min_p?: number;
+  top_a?: number;
+  prediction?: { type: 'content'; content: string };
+  transforms?: string[];
+  models?: string[];
+  route?: 'fallback';
+  provider?: ORProviderPreferences;
+  modalities?: string[];
+}
+
+export interface ORTool {
+  type: 'function';
+  function: ORFunctionDescription;
+}
+
+export interface ORFunctionDescription {
+  description?: string;
+  name: string;
+  parameters: object;
+}
+
+export type ORToolChoice =
+  | 'none'
+  | 'auto'
+  | { type: 'function'; function: { name: string } };
+
+export type ORProviderPreferences = Record<string, unknown>;
+
+export interface ORResponse {
+  id: string;
+  choices: (ORNonStreamingChoice | ORStreamingChoice | ORNonChatChoice)[];
+  created: number;
+  model: string;
+  object: 'chat.completion' | 'chat.completion.chunk';
+  system_fingerprint?: string;
+  usage?: ORResponseUsage;
+}
+
+export interface ORResponseUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface ORNonChatChoice {
+  finish_reason: string | null;
+  text: string;
+  error?: ORErrorResponse;
+}
+
+export interface ORNonStreamingChoice {
+  finish_reason: string | null;
+  native_finish_reason: string | null;
+  message: {
+    content: string | null;
+    role: string;
+    tool_calls?: ORToolCall[];
+  };
+  error?: ORErrorResponse;
+}
+
+export interface ORStreamingChoice {
+  finish_reason: string | null;
+  native_finish_reason: string | null;
+  delta: {
+    content: string | null;
+    role?: string;
+    tool_calls?: ORToolCall[];
+  };
+  error?: ORErrorResponse;
+}
+
+export interface ORErrorResponse {
+  code: number;
+  message: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ORToolCall {
+  id: string;
+  type: 'function';
+  function: ORFunctionCall;
+}
+
+export interface ORFunctionCall {
+  name: string;
+  arguments: string;
+}
+
+// --- OpenRouter Models API Types ---
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  created: number;
+  description: string;
+  architecture: {
+    input_modalities: string[];
+    output_modalities: string[];
+    tokenizer: string;
+  };
+  top_provider: {
+    is_moderated: boolean;
+  };
+  pricing: {
+    prompt: string;
+    completion: string;
+    image: string;
+    request: string;
+    input_cache_read: string;
+    input_cache_write: string;
+    web_search: string;
+    internal_reasoning: string;
+  };
+  context_length: number;
+  per_request_limits: Record<string, string>;
+}
+
+export interface OpenRouterModelsResponse {
+  data: OpenRouterModel[];
+}
+
 /**
  * Context management for chat history
  * Maintains a sliding window of recent messages for context
  */
 class ChatContextManager {
-  private history: Array<{ role: 'user' | 'assistant' | 'system', content: string }> = [];
-  
-  /**
-   * Adds a message to the chat history
-   */
-  addMessage(role: 'user' | 'assistant' | 'system', content: string): void {
+  private history: ORMessage[] = [];
+
+  addMessage(role: 'user' | 'assistant', content: string | ORContentPart[]): void {
     this.history.push({ role, content });
-    
-    // Maintain the history window size
     if (this.history.length > HISTORY_WINDOW_SIZE) {
       this.history.shift();
     }
   }
-  
-  /**
-   * Gets the current chat history
-   */
-  getHistory(): Array<{ role: 'user' | 'assistant' | 'system', content: string }> {
+
+  getHistory(): ORMessage[] {
     return [...this.history];
   }
-  
-  /**
-   * Clears the chat history
-   */
+
   clearHistory(): void {
     this.history = [];
   }
@@ -60,223 +205,209 @@ export class OpenRouterService {
   private contextManager: ChatContextManager;
   private customPrompt: string | undefined;
   private isCancelled: boolean = false;
-  private openai: OpenAI | null = null;
-  
-  /**
-   * Initialize the OpenRouter service with the model name
-   */
-  constructor(modelName: string = 'openrouter/mistral-7b') {
+
+  constructor(modelName: string = 'mistral-7b') {
     this.contextManager = new ChatContextManager();
     this.currentModel = modelName;
   }
-  
-  /**
-   * Set the API key and initialize the OpenAI client
-   */
+
   setApiKey(apiKey: string): void {
     this.apiKey = apiKey;
-    
-    if (apiKey) {
-      try {
-        this.openai = new OpenAI({
-          baseURL: 'https://openrouter.ai/api/v1',
-          apiKey: this.apiKey,
-          defaultHeaders: {
-            'HTTP-Referer': 'https://github.com/androidLLM',
-            'X-Title': 'AndroidLLM',
-          },
-        });
-      } catch (error) {
-        console.error('Failed to initialize OpenRouter client:', error);
-        this.openai = null;
-      }
-    } else {
-      this.openai = null;
-    }
   }
-  
-  /**
-   * Check if the service has been properly initialized with a valid API key
-   */
+
   isInitialized(): boolean {
-    return !!this.apiKey && !!this.openai;
+    return !!this.apiKey;
   }
-  
-  /**
-   * Get the current model name
-   */
+
   getCurrentModel(): string {
     return this.currentModel;
   }
-  
-  /**
-   * Change the current model and reset the chat context
-   */
+
   async changeModel(modelName: string): Promise<void> {
     if (this.currentModel === modelName) return;
     this.currentModel = modelName;
-    this.resetChat();
   }
-  
-  /**
-   * Set a custom model name
-   */
+
   setCustomModel(modelName: string): void {
-    if (!modelName) return;
     this.currentModel = modelName;
-    this.resetChat();
   }
-  
-  /**
-   * Set a custom system prompt
-   */
+
   setCustomPrompt(prompt: string | undefined): void {
     this.customPrompt = prompt;
   }
-  
-  /**
-   * Cancel the current generation
-   */
+
   cancelGeneration(): void {
     this.isCancelled = true;
   }
-  
-  /**
-   * Reset the chat context
-   */
+
   resetChat(): void {
     this.contextManager.clearHistory();
   }
-  
+
   /**
-   * Send a message to the OpenRouter API and get a streaming response when possible
+   * Fetch available models from OpenRouter
    */
-  async sendMessage(message: string, onPartialResponse?: (text: string) => void): Promise<string> {
-    this.isCancelled = false;
-    
-    if (!this.apiKey || !this.openai) {
-      return 'API key not set. Please set your OpenRouter API key in the settings.';
+  async fetchAvailableModels(): Promise<OpenRouterModel[]> {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {})
+        }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch models');
+      }
+      const data: OpenRouterModelsResponse = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error('[OpenRouter] Error fetching models:', error);
+      throw error;
     }
-    
+  }
+
+  /**
+   * Send a message to the OpenRouter API and get a streaming or non-streaming response
+   * If onPartialResponse is provided, will use streaming (SSE) if supported by the API
+   * Returns the full response string, or error string if failed
+   */
+  async sendMessage(
+    message: string,
+    onPartialResponse?: (text: string) => void,
+    options?: Partial<Omit<ORRequest, 'messages' | 'prompt' | 'model' | 'stream'>>
+  ): Promise<string> {
+    this.isCancelled = false;
+    if (!this.apiKey) {
+      return "API key not set. Please set your OpenRouter API key in the settings.";
+    }
+
     // Add the user message to context
     this.contextManager.addMessage('user', message);
-    
-    // Prepare message format for OpenAI API
-    const messages: ChatCompletionMessageParam[] = [
-      ...(this.customPrompt
-        ? [{
-            role: 'system' as "system",
-            content: this.customPrompt
-          }]
-        : []),
-      ...this.contextManager.getHistory().map(m => ({
-        role: m.role as "system" | "user" | "assistant" | "function" | "developer" | "tool",
-        content: m.content
-      }))
+
+    // Prepare the messages for OpenRouter API
+    const messages: ORMessage[] = [
+      ...(this.customPrompt ? [{ role: 'system' as const, content: this.customPrompt }] : []),
+      ...this.contextManager.getHistory()
     ];
-    
+
+    // Build request body
+    const reqBody: ORRequest = {
+      model: this.currentModel,
+      messages,
+      stream: !!onPartialResponse,
+      ...options
+    };
+
+    // Log all request data
+    console.log('[OpenRouter] Sending request:', {
+      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      apiKeySet: !!this.apiKey,
+      model: this.currentModel,
+      messages,
+      stream: reqBody.stream,
+      options
+    });
+
     try {
-      // Handle streaming if a callback is provided
-      if (onPartialResponse) {
-        let stream;
-        
-        try {
-          // First try streaming
-          stream = await this.openai.chat.completions.create({
-            model: this.currentModel,
-            messages: messages,
-            stream: true,
-            temperature: 0.7,
-          });
-          
-          if (!stream || typeof stream[Symbol.asyncIterator] !== 'function') {
-            throw new Error('Streaming not supported or response is empty.');
-          }
-        } catch (streamErr) {
-          // If streaming fails, fall back to regular completion
-          console.warn('Streaming failed, falling back to regular completion:', streamErr);
-          
-          const completion = await this.openai.chat.completions.create({
-            model: this.currentModel,
-            messages: messages,
-            temperature: 0.7,
-          });
-          
-          const content = completion.choices?.[0]?.message?.content || '';
-          
-          if (content) {
-            this.contextManager.addMessage('assistant', content);
-            return (
-              '⚠️ Streaming is not supported for this model/provider. Displaying full response instead.\n\n' +
-              content
-            );
-          }
-          
-          return 'No response from OpenRouter API.';
+      if (reqBody.stream && onPartialResponse) {
+        // --- Streaming via SSE ---
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify(reqBody)
+        });
+        if (!response.ok || !response.body) {
+          const errorText = await response.text();
+          throw new Error(`OpenRouter API error: ${errorText}`);
         }
-        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
         let fullResponse = '';
-        
-        // Process stream chunks
-        for await (const chunk of stream) {
-          const content = chunk.choices?.[0]?.delta?.content || '';
-          
-          if (content) {
-            fullResponse += content;
-            onPartialResponse(fullResponse);
-          }
-          
-          // Handle cancellation during streaming
-          if (this.isCancelled) {
-            const stopped = fullResponse + ' [Generation stopped]';
-            this.contextManager.addMessage('assistant', stopped);
-            return stopped;
+        let done = false;
+        while (!done && !this.isCancelled) {
+          const { value, done: streamDone } = await reader.read();
+          done = streamDone;
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            // SSE: split by newlines, process each event
+            let lines = buffer.split(/\r?\n/);
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              if (line.startsWith('data:')) {
+                const dataStr = line.slice(5).trim();
+                if (!dataStr || dataStr === '[DONE]') continue;
+                try {
+                  const chunk: ORResponse = JSON.parse(dataStr);
+                  const choice = chunk.choices?.[0];
+                  if (choice && 'delta' in choice && choice.delta && typeof choice.delta.content === 'string') {
+                    fullResponse += choice.delta.content;
+                    onPartialResponse(fullResponse);
+                  }
+                  // Handle finish_reason
+                  if (choice && 'finish_reason' in choice && choice.finish_reason) {
+                    done = true;
+                    break;
+                  }
+                } catch (err) {
+                  // Ignore parse errors for keep-alive/comments
+                }
+              }
+            }
           }
         }
-        
-        // Add final response to context
+        if (this.isCancelled) {
+          const stopped = fullResponse.trim() + ' [Generation stopped]';
+          this.contextManager.addMessage('assistant', stopped);
+          return stopped;
+        }
         this.contextManager.addMessage('assistant', fullResponse);
         return fullResponse;
       } else {
-        // Non-streaming approach
-        const completion = await this.openai.chat.completions.create({
-          model: this.currentModel,
-          messages: messages,
-          temperature: 0.7,
+        // --- Non-streaming ---
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify(reqBody)
         });
-        
-        const content = completion.choices?.[0]?.message?.content || '';
-        
-        if (content) {
-          this.contextManager.addMessage('assistant', content);
-          return content;
+        if (!response.ok) {
+          const errorText = await response.text();
+          if (errorText.includes('not a valid model ID')) {
+            return `The model \"${this.currentModel}\" is not a valid OpenRouter model. Please check your model name or select a valid model from https://openrouter.ai/models.`;
+          }
+          throw new Error(`OpenRouter API error: ${errorText}`);
         }
-        
-        return 'No response from OpenRouter API.';
+        const data: ORResponse = await response.json();
+        // Handle error in response
+        const err = data.choices?.[0]?.error;
+        if (err) {
+          return `OpenRouter error: ${err.message}`;
+        }
+        const choice = data.choices?.[0];
+        let fullResponse = '';
+        if (choice) {
+          if ('message' in choice && choice.message && typeof choice.message.content === 'string') {
+            fullResponse = choice.message.content;
+          } else if ('text' in choice && typeof choice.text === 'string') {
+            fullResponse = choice.text;
+          }
+        }
+        this.contextManager.addMessage('assistant', fullResponse);
+        return fullResponse;
       }
-    } catch (error: any) {
-      // Handle specific error cases with user-friendly messages
-      if (error.message?.includes('no body') || error.message?.includes('Streaming not supported')) {
-        return 'Streaming is not supported for this model/provider, or the response was empty. Please try again without streaming or switch models.';
+    } catch (error) {
+      const err = error as Error;
+      if (typeof err.message === 'string' && err.message.includes('not a valid model ID')) {
+        return `The model \"${this.currentModel}\" is not a valid OpenRouter model. Please check your model name or select a valid model from https://openrouter.ai/models.`;
       }
-      
-      if (error.message?.includes('not a valid model ID')) {
-        return `The model "${this.currentModel}" is not a valid OpenRouter model. Please check your model name or select a valid model from https://openrouter.ai/models.`;
-      }
-      
-      if (error.message?.includes('401') || error.message?.toLowerCase().includes('key')) {
-        return 'OpenRouter authentication error: Please ensure you have entered a valid OpenRouter API key.';
-      }
-      
-      if (error.message?.includes('429')) {
-        return 'Rate limit exceeded. Please wait and try again later.';
-      }
-      
-      if (error.message?.includes('network')) {
-        return 'Network error: Please check your internet connection.';
-      }
-      
-      console.error('OpenRouter API error:', error);
+      console.error('[OpenRouter] Error generating response:', error);
       return "I'm sorry, I encountered an error processing your request. Please try again.";
     }
   }

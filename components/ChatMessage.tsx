@@ -11,26 +11,6 @@ interface ChatMessageProps {
   isGenerating?: boolean;
 }
 
-const LoadingBubble = ({ isDarkMode }: { isDarkMode: boolean }) => {
-  const [dots, setDots] = React.useState('');
-
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      setDots(prev => (prev.length < 3 ? prev + '.' : ''));
-    }, 500); // Update every 500ms
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <View className="flex-row items-center h-6 px-3">
-      <Text className={isDarkMode ? 'text-white text-lg' : 'text-black text-lg'}>
-        {dots || '.'}
-      </Text>
-    </View>
-  );
-};
-
 export const ChatMessage = ({ content, role, isLast = false, isGenerating = false }: ChatMessageProps) => {
   const { isDarkMode } = useTheme();
   const isUser = role === 'user';
@@ -51,17 +31,13 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
           }
         `}
       >
-        {content ? (
-          <Markdown
-            style={isUser ? mdStyles.user : mdStyles.assistant}
-          >
-            {content}
-          </Markdown>
-        ) : isLast && isGenerating ? (
-          <LoadingBubble isDarkMode={isDarkMode} />
-        ) : null}
+        <Markdown
+          style={isUser ? mdStyles.user : mdStyles.assistant}
+        >
+          {content}
+        </Markdown>
         
-        {content && isLast && isGenerating && (
+        {isLast && isGenerating && (
           <View
             className={`
               w-0.5 h-2.5 ml-0.5 mt-0.5
