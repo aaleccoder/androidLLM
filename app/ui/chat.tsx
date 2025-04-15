@@ -24,6 +24,8 @@ import { useData, Message as DataMessage, ChatThread, Message } from '../../cont
 import * as Haptics from 'expo-haptics';
 import { ChatSidebar } from '../../components/ChatSidebar';
 import { Welcome } from '../../components/Welcome';
+import Fuse from 'fuse.js';
+import { TitleBar } from '../../components/TitleBar';
 
 // Create a global event emitter for cross-component communication
 import { EventEmitter } from 'events';
@@ -49,19 +51,20 @@ const GEMINI_MODELS: ModelOption[] = [
 
 export default function Chat() {
   const { isDarkMode, theme } = useTheme();
-  const { data, createChatThread, updateChatThread, setActiveThread, saveData } = useData();
+  const { data, createChatThread, updateChatThread, setActiveThread, deleteChatThread, setActiveThreadInMemory, updateChatThreadInMemory, deleteChatThreadInMemory, saveData } = useData();
   const { getCurrentPassword } = useAuth();
 
+  // --- Types for state ---
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [apiKeySet, setApiKeySet] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [apiKeySet, setApiKeySet] = useState<boolean>(false);
+  const [showSidebar, setShowSidebar] = useState<boolean>(false);
   const [currentThreadId, setCurrentThreadId] = useState<string | undefined>(data?.activeThreadId);
-  const [editingEnabled, setEditingEnabled] = useState(false);
+  const [editingEnabled, setEditingEnabled] = useState<boolean>(false);
   const [openRouterModels, setOpenRouterModels] = useState<string[]>([]);
   const [currentModel, setCurrentModel] = useState<ModelOption>(GEMINI_MODELS[1]); // Default Gemini 1.5 Pro
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState<boolean>(true);
 
   // OpenRouter models modal state
   const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
@@ -70,9 +73,60 @@ export default function Chat() {
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [modelSearch, setModelSearch] = useState<string>('');
 
+  // Model switcher modal state (moved up from ChatInput)
+  const [showModelMenu, setShowModelMenu] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  // Combine Gemini and OpenRouter models
+  const openRouterModelOptions: ModelOption[] = openRouterModels.map(m => ({
+    id: m,
+    displayName: m,
+    provider: 'openrouter'
+  }));
+  const ALL_MODELS: ModelOption[] = [...GEMINI_MODELS, ...openRouterModelOptions];
+  const fuse = new Fuse(ALL_MODELS, {
+    keys: ['displayName'],
+    threshold: 0.4,
+    includeScore: true
+  });
+  const filteredModels: ModelOption[] = searchQuery
+    ? fuse.search(searchQuery).map(result => result.item)
+    : ALL_MODELS;
+  // Model change handler (unified)
+  const handleModelChangeUnified = (model: ModelOption) => {
+    handleModelChange(model);
+    setShowModelMenu(false);
+    setSearchQuery('');
+  };
+
   const scrollViewRef = useRef<ScrollView>(null);
   const navigation = useNavigation();
 
+  // Helper: get next available thread id (after deletion)
+  const getNextThreadId = (deletedId?: string): string | undefined => {
+    if (!data?.chatThreads || data.chatThreads.length === 0) return undefined;
+    const threads = data.chatThreads.filter(t => t.id !== deletedId);
+    if (threads.length === 0) return undefined;
+    // Prefer most recently updated
+    return threads.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
+  };
+
+  // Listen for thread deletion in data context
+  useEffect(() => {
+    // If current thread is gone, switch to next or show welcome
+    if (currentThreadId && (!data?.chatThreads?.find(t => t.id === currentThreadId))) {
+      const nextId = getNextThreadId(currentThreadId);
+      if (nextId) {
+        handleSelectThread(nextId);
+      } else {
+        setMessages([]);
+        setCurrentThreadId(undefined);
+        setShowWelcome(true);
+        geminiService.resetChat();
+      }
+    }
+  }, [data?.chatThreads]);
+
+  // On model change, always create and switch to a new chat
   const handleModelChange = async (model: ModelOption) => {
     if (model.provider === 'gemini') {
       await geminiService.changeModel(model.id as any);
@@ -80,7 +134,7 @@ export default function Chat() {
       openRouterService.setCustomModel(model.id);
     }
     setCurrentModel(model);
-    handleNewChat();
+    await handleNewChat();
   };
 
   const handleShowModels = async () => {
@@ -128,7 +182,7 @@ export default function Chat() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const filteredModels = availableModels.filter((model) => {
+  const filteredModelsAvailable = availableModels.filter((model) => {
     const search = modelSearch.trim().toLowerCase();
     if (!search) return true;
     return (
@@ -147,26 +201,31 @@ export default function Chat() {
     }
   }, [data]);
 
+  // --- Robust effect for data changes ---
   useEffect(() => {
-    if (data?.activeThreadId && data.chatThreads) {
-      const activeThread = data.chatThreads.find(thread => thread.id === data.activeThreadId);
-      if (activeThread && activeThread.messages.length > 0) {
-        setMessages(activeThread.messages.map(msg => ({
-          isUser: msg.isUser,
-          text: msg.text,
-          timestamp: msg.timestamp
-        })));
-        setShowWelcome(false);
-        setCurrentThreadId(activeThread.id);
-      } else if (!activeThread) {
-        // Reset the state when the active thread is deleted
-        setMessages([]);
-        setCurrentThreadId(undefined);
-        setShowWelcome(true);
-        geminiService.resetChat();
-      }
+    if (!data?.activeThreadId || !data.chatThreads) {
+      setMessages([]);
+      setCurrentThreadId(undefined);
+      setShowWelcome(true);
+      geminiService.resetChat();
+      return;
     }
-  }, [data]);
+    const activeThread: ChatThread | undefined = data.chatThreads.find(thread => thread.id === data.activeThreadId);
+    if (activeThread) {
+      setMessages(activeThread.messages.map((msg: Message) => ({
+        isUser: msg.isUser,
+        text: msg.text,
+        timestamp: msg.timestamp
+      })));
+      setShowWelcome(activeThread.messages.length === 0);
+      setCurrentThreadId(activeThread.id);
+    } else {
+      setMessages([]);
+      setCurrentThreadId(undefined);
+      setShowWelcome(true);
+      geminiService.resetChat();
+    }
+  }, [data?.activeThreadId, data?.chatThreads]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -258,61 +317,43 @@ export default function Chat() {
         return;
       }
       geminiService.resetChat();
-      const updatedData = {
-        ...data,
-        chatThreads: [
-          ...(data?.chatThreads || []),
-          {
-            id: Date.now().toString(),
-            title: 'New Chat',
-            messages: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ],
-        apiKeys: {
-          gemini: data?.apiKeys?.gemini || '',
-          openRouter: data?.apiKeys?.openRouter || ''
-        },
-      };
-      const newThreadId = updatedData.chatThreads[updatedData.chatThreads.length - 1].id;
-      updatedData.activeThreadId = newThreadId;
+      // Use new createChatThread API with model
+      const newThreadId = await createChatThread(password, currentModel);
       setCurrentThreadId(newThreadId);
-      await saveData(updatedData, password);
+      setMessages([]);
+      setShowWelcome(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('Error creating new chat:', error);
     }
   };
 
-  const handleSelectThread = async (threadId: string) => {
+  // --- Robust chat switching ---
+  const handleSelectThread = async (threadId: string): Promise<void> => {
     if (threadId === currentThreadId) return;
-    
     try {
-      saveMessages();
-      
-      const thread = data?.chatThreads?.find(t => t.id === threadId);
+      await saveMessages();
+      const thread: ChatThread | undefined = data?.chatThreads?.find((t) => t.id === threadId);
       if (!thread) {
         console.error('Thread not found:', threadId);
         return;
       }
-      
-      const password = getCurrentPassword();
-      if (!password) {
-        console.error('Cannot select thread: No password available');
-        return;
-      }
-      
-      await setActiveThread(threadId, password);
+      // Update local state and context in-memory for instant feedback
       setCurrentThreadId(threadId);
-      
-      setMessages(thread.messages.map(msg => ({
+      setMessages(thread.messages.map((msg: Message) => ({
         isUser: msg.isUser,
         text: msg.text,
-        timestamp: msg.timestamp
+        timestamp: msg.timestamp,
       })));
-      
+      setShowWelcome(thread.messages.length === 0);
+      setCurrentModel({
+        id: thread.model.id,
+        displayName: thread.model.displayName,
+        provider: thread.model.provider as "gemini" | "openrouter"
+      }); // Set model from thread
       geminiService.resetChat();
+      setActiveThreadInMemory(threadId);
+      // Do NOT persist here; only persist on explicit actions
     } catch (error) {
       console.error('Error selecting thread:', error);
     }
@@ -351,6 +392,7 @@ See https://openrouter.ai/models for available models.`,
       await handleNewChat();
     }
     setShowWelcome(false);
+    // In-memory update for instant feedback
     setMessages(prev => [...prev, { isUser: true, text: message, timestamp: Date.now() }]);
     setMessages(prev => [...prev, { isUser: false, text: '', timestamp: Date.now(), isStreaming: true }]);
     setIsLoading(true);
@@ -373,22 +415,18 @@ See https://openrouter.ai/models for available models.`,
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
             if (lastMessage && !lastMessage.isUser) {
-              lastMessage.text = partialResponse;
+              lastMessage.text += partialResponse; // Append the new chunk
             }
             return newMessages;
           });
         });
-        console.log('[Chat] openRouterService.sendMessage result:', result);
-        // If the result is an error string, show it in the chat
-        if (
-          typeof result === 'string' &&
-          (result.includes('API key not set') || result.startsWith("I'm sorry") || result.toLowerCase().includes('error'))
-        ) {
+        // Only treat as error if result is an object with an error property
+        if (typeof result === 'object' && result !== null && 'error' in result) {
           setMessages(prev => {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
             if (lastMessage && !lastMessage.isUser) {
-              lastMessage.text = result;
+              lastMessage.text = result.error;
               lastMessage.isStreaming = false;
             }
             return newMessages;
@@ -406,6 +444,14 @@ See https://openrouter.ai/models for available models.`,
         }
         return newMessages;
       });
+      // Persist the chat after message is sent
+      if (currentThreadId) {
+        updateChatThreadInMemory(currentThreadId, messagesRef.current);
+        const password = getCurrentPassword();
+        if (password) {
+          await updateChatThread(currentThreadId, messagesRef.current, password);
+        }
+      }
     } catch (error) {
       console.error('Error getting response:', error);
       setMessages(prev => {
@@ -433,6 +479,31 @@ See https://openrouter.ai/models for available models.`,
     setIsGenerating(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
+
+  // Compute connection status for ChatInput
+  type ConnectionStatus = 'connected' | 'error' | 'unknown';
+  const connectionStatus: ConnectionStatus = React.useMemo(() => {
+    if (currentModel.provider === 'gemini') {
+      return data?.apiKeys?.gemini ? 'connected' : 'error';
+    } else if (currentModel.provider === 'openrouter') {
+      return data?.apiKeys?.openRouter ? 'connected' : 'error';
+    }
+    return 'unknown';
+  }, [currentModel, data]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      header: (props: any) => (
+        <TitleBar
+          {...props}
+          showMenuButton={true}
+          isDarkMode={isDarkMode}
+          setIsDarkMode={() => {}}
+          setShowSettings={openSettings}
+        />
+      )
+    });
+  }, [isDarkMode]);
 
   return (
     <ProtectedRoute>
@@ -474,9 +545,15 @@ See https://openrouter.ai/models for available models.`,
             isGenerating={isGenerating}
             onStopGeneration={handleStopGeneration}
             currentModel={currentModel}
-            onModelChange={handleModelChange}
+            onModelChange={handleModelChangeUnified}
             openRouterModels={openRouterModels}
             addOpenRouterModel={addOpenRouterModel}
+            showModelMenu={showModelMenu}
+            setShowModelMenu={setShowModelMenu}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filteredModels={filteredModels}
+            connectionStatus={connectionStatus}
           />
           
           {showSidebar && (
@@ -523,11 +600,11 @@ See https://openrouter.ai/models for available models.`,
                   <ActivityIndicator size="large" color={isDarkMode ? '#fff' : '#000'} className="mt-8" />
                 ) : modelsError ? (
                   <Text className="text-red-500 mt-4">{modelsError}</Text>
-                ) : filteredModels.length === 0 ? (
+                ) : filteredModelsAvailable.length === 0 ? (
                   <Text className={`text-center mt-8 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>No models found.</Text>
                 ) : (
                   <FlatList
-                    data={filteredModels}
+                    data={filteredModelsAvailable}
                     keyExtractor={item => item.id}
                     style={{ marginTop: 8 }}
                     renderItem={({ item }) => (

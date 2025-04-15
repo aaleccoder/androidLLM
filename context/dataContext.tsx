@@ -14,6 +14,11 @@ export interface ChatThread {
   messages: Message[];
   createdAt: number;
   updatedAt: number;
+  model: {
+    id: string;
+    displayName: string;
+    provider: string;
+  };
 }
 
 export interface AppData {
@@ -33,10 +38,14 @@ interface DataContextType {
   data: AppData | null;
   loadData: (password: string) => Promise<void>;
   saveData: (newData: AppData, password: string) => Promise<void>;
-  createChatThread: (password: string) => Promise<string>;
+  createChatThread: (password: string, model: { id: string; displayName: string; provider: string }) => Promise<string>;
   updateChatThread: (threadId: string, messages: Message[], password: string) => Promise<void>;
   setActiveThread: (threadId: string, password: string) => Promise<void>;
   deleteChatThread: (threadId: string, password: string) => Promise<void>;
+  // In-memory only functions
+  setActiveThreadInMemory: (threadId: string) => void;
+  updateChatThreadInMemory: (threadId: string, messages: Message[]) => void;
+  deleteChatThreadInMemory: (threadId: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -76,7 +85,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   /**
    * Creates a new chat thread
    */
-  const createChatThread = async (password: string): Promise<string> => {
+  const createChatThread = async (password: string, model: { id: string; displayName: string; provider: string }): Promise<string> => {
     if (!data) throw new Error('No data loaded');
     
     const newThreadId = Date.now().toString();
@@ -85,7 +94,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       title: 'New Chat',
       messages: [],
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      model
     };
     
     const updatedData = {
@@ -151,7 +161,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           ...thread,
           title,
           messages,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
+          model: thread.model // preserve model
         };
       }
       return thread;
@@ -215,6 +226,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await saveData(updatedData, password);
   };
 
+  // In-memory only: set active thread
+  const setActiveThreadInMemory = (threadId: string): void => {
+    setData(prev => prev ? { ...prev, activeThreadId: threadId } : prev);
+  };
+
+  // In-memory only: update chat thread messages
+  const updateChatThreadInMemory = (threadId: string, messages: Message[]): void => {
+    setData(prev => {
+      if (!prev) return prev;
+      const updatedThreads = prev.chatThreads.map(thread =>
+        thread.id === threadId ? { ...thread, messages, updatedAt: Date.now(), model: thread.model } : thread
+      );
+      return { ...prev, chatThreads: updatedThreads };
+    });
+  };
+
+  // In-memory only: delete chat thread
+  const deleteChatThreadInMemory = (threadId: string): void => {
+    setData(prev => {
+      if (!prev) return prev;
+      const updatedThreads = prev.chatThreads.filter(thread => thread.id !== threadId);
+      let activeThreadId = prev.activeThreadId;
+      if (activeThreadId === threadId) {
+        activeThreadId = updatedThreads.length > 0 ? updatedThreads.sort((a, b) => b.updatedAt - a.updatedAt)[0].id : undefined;
+      }
+      return { ...prev, chatThreads: updatedThreads, activeThreadId };
+    });
+  };
+
   return (
     <DataContext.Provider value={{ 
       data, 
@@ -223,7 +263,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       createChatThread,
       updateChatThread,
       setActiveThread,
-      deleteChatThread
+      deleteChatThread,
+      setActiveThreadInMemory,
+      updateChatThreadInMemory,
+      deleteChatThreadInMemory
     }}>
       {children}
     </DataContext.Provider>

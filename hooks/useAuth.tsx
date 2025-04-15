@@ -15,6 +15,7 @@ import { encryptData } from '../utils/encryption';
 import React from 'react';
 import { router, useRouter } from 'expo-router';
 import { useData } from '../context/dataContext';
+import { deleteFile } from '../utils/readJson';
 
 // Create a module-level variable to store authentication state
 // This will persist only for the current app session
@@ -140,6 +141,7 @@ function useAuthHook() {
                 isAuthenticatedSession = true;
                 currentUserPassword = password;
                 setIsAuthenticated(true);
+                setIsNewUser(false); // <-- Fix: update isNewUser after registration
                 return true;
             } else {
                 const storedHash = await SecureStore.getItemAsync('passwordHash');
@@ -177,6 +179,7 @@ function useAuthHook() {
             isAuthenticatedSession = false;
             currentUserPassword = '';
             setIsAuthenticated(false);
+            await checkIfFileExists(); // <-- Fix: update isNewUser after logout
             
             // Add a small delay before navigation
             router.push("/");
@@ -193,7 +196,7 @@ function useAuthHook() {
      */
     const deleteAllData = async () => {
         try {
-            await FileSystem.deleteAsync(`${FileSystem.documentDirectory}data.json`);
+            await deleteFile();
             await SecureStore.deleteItemAsync('passwordHash');
             isAuthenticatedSession = false;
             currentUserPassword = '';

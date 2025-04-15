@@ -1,417 +1,285 @@
-/**
- * OpenRouter API Service
- * 
- * Service worker for interacting with OpenRouter API
- * Handles:
- * - API configuration and initialization
- * - Message generation
- * - Context management
- */
+import axios, { AxiosResponse } from 'axios';
+import EventSource from 'react-native-sse';
 
-// Default system prompt is empty unless user sets a custom one
-export const DEFAULT_SYSTEM_PROMPT = '';
-
-// History window size for context management
-const HISTORY_WINDOW_SIZE = 10;
-
-// --- OpenRouter API Types ---
-
-export type ORMessage =
-  | {
-      role: 'user' | 'assistant' | 'system';
-      content: string | ORContentPart[];
-      name?: string;
-    }
-  | {
-      role: 'tool';
-      content: string;
-      tool_call_id: string;
-      name?: string;
-    };
-
-export type ORContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string; detail?: string } };
+export type ORMessage = {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+};
 
 export interface ORRequest {
-  messages?: ORMessage[];
-  prompt?: string;
-  model?: string;
-  response_format?: { type: 'json_object' };
-  stop?: string | string[];
+  model: string;
+  messages: ORMessage[];
   stream?: boolean;
-  max_tokens?: number;
-  temperature?: number;
-  tools?: ORTool[];
-  tool_choice?: ORToolChoice;
-  seed?: number;
-  top_p?: number;
-  top_k?: number;
-  frequency_penalty?: number;
-  presence_penalty?: number;
-  repetition_penalty?: number;
-  logit_bias?: { [key: number]: number };
-  top_logprobs?: number;
-  min_p?: number;
-  top_a?: number;
-  prediction?: { type: 'content'; content: string };
-  transforms?: string[];
-  models?: string[];
-  route?: 'fallback';
-  provider?: ORProviderPreferences;
-  modalities?: string[];
+  [key: string]: unknown;
 }
-
-export interface ORTool {
-  type: 'function';
-  function: ORFunctionDescription;
-}
-
-export interface ORFunctionDescription {
-  description?: string;
-  name: string;
-  parameters: object;
-}
-
-export type ORToolChoice =
-  | 'none'
-  | 'auto'
-  | { type: 'function'; function: { name: string } };
-
-export type ORProviderPreferences = Record<string, unknown>;
 
 export interface ORResponse {
-  id: string;
-  choices: (ORNonStreamingChoice | ORStreamingChoice | ORNonChatChoice)[];
-  created: number;
-  model: string;
-  object: 'chat.completion' | 'chat.completion.chunk';
-  system_fingerprint?: string;
-  usage?: ORResponseUsage;
+  choices: { message: { content: string } }[];
 }
 
-export interface ORResponseUsage {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-}
-
-export interface ORNonChatChoice {
-  finish_reason: string | null;
-  text: string;
-  error?: ORErrorResponse;
-}
-
-export interface ORNonStreamingChoice {
-  finish_reason: string | null;
-  native_finish_reason: string | null;
-  message: {
-    content: string | null;
-    role: string;
-    tool_calls?: ORToolCall[];
-  };
-  error?: ORErrorResponse;
-}
-
-export interface ORStreamingChoice {
-  finish_reason: string | null;
-  native_finish_reason: string | null;
-  delta: {
-    content: string | null;
-    role?: string;
-    tool_calls?: ORToolCall[];
-  };
-  error?: ORErrorResponse;
-}
-
-export interface ORErrorResponse {
-  code: number;
-  message: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface ORToolCall {
-  id: string;
-  type: 'function';
-  function: ORFunctionCall;
-}
-
-export interface ORFunctionCall {
-  name: string;
-  arguments: string;
-}
-
-// --- OpenRouter Models API Types ---
 export interface OpenRouterModel {
   id: string;
   name: string;
-  created: number;
   description: string;
-  architecture: {
-    input_modalities: string[];
-    output_modalities: string[];
-    tokenizer: string;
-  };
-  top_provider: {
-    is_moderated: boolean;
-  };
+  context_length: number;
   pricing: {
     prompt: string;
     completion: string;
-    image: string;
-    request: string;
-    input_cache_read: string;
-    input_cache_write: string;
-    web_search: string;
-    internal_reasoning: string;
   };
-  context_length: number;
-  per_request_limits: Record<string, string>;
 }
 
-export interface OpenRouterModelsResponse {
-  data: OpenRouterModel[];
-}
-
-/**
- * Context management for chat history
- * Maintains a sliding window of recent messages for context
- */
-class ChatContextManager {
-  private history: ORMessage[] = [];
-
-  addMessage(role: 'user' | 'assistant', content: string | ORContentPart[]): void {
-    this.history.push({ role, content });
-    if (this.history.length > HISTORY_WINDOW_SIZE) {
-      this.history.shift();
-    }
-  }
-
-  getHistory(): ORMessage[] {
-    return [...this.history];
-  }
-
-  clearHistory(): void {
-    this.history = [];
-  }
-}
-
-/**
- * OpenRouterService class for handling all interactions with OpenRouter API
- */
 export class OpenRouterService {
   private apiKey: string = '';
-  private currentModel: string = 'mistral-7b';
-  private contextManager: ChatContextManager;
-  private customPrompt: string | undefined;
-  private isCancelled: boolean = false;
+  private model: string = 'openai/gpt-4o';
+  private requestInProgress: boolean = false;
+  private lastMessage: string | null = null;
+  private lastRateLimitInfo: { limit: number; remaining: number; reset: number } | null = null;
+  private currentEventSource: EventSource | null = null;
+  private cancelRequested: boolean = false;
 
-  constructor(modelName: string = 'mistral-7b') {
-    this.contextManager = new ChatContextManager();
-    this.currentModel = modelName;
+  setApiKey(key: string): void {
+    this.apiKey = key;
   }
 
-  setApiKey(apiKey: string): void {
-    this.apiKey = apiKey;
+  setModel(model: string): void {
+    this.model = model;
   }
 
-  isInitialized(): boolean {
-    return !!this.apiKey;
+  setCustomModel(model: string): void {
+    this.setModel(model);
   }
 
-  getCurrentModel(): string {
-    return this.currentModel;
+  getRateLimitInfo(): { limit: number; remaining: number; reset: number } | null {
+    return this.lastRateLimitInfo;
   }
 
-  async changeModel(modelName: string): Promise<void> {
-    if (this.currentModel === modelName) return;
-    this.currentModel = modelName;
-  }
-
-  setCustomModel(modelName: string): void {
-    this.currentModel = modelName;
-  }
-
-  setCustomPrompt(prompt: string | undefined): void {
-    this.customPrompt = prompt;
-  }
-
-  cancelGeneration(): void {
-    this.isCancelled = true;
-  }
-
-  resetChat(): void {
-    this.contextManager.clearHistory();
+  async fetchAvailableModels(): Promise<OpenRouterModel[]> {
+    if (!this.apiKey) throw new Error('API key not set.');
+    const response = await axios.get('https://openrouter.ai/api/v1/models', {
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    // Optionally update rate limit info from headers
+    this._updateRateLimitInfo(response.headers);
+    return response.data.data as OpenRouterModel[];
   }
 
   /**
-   * Fetch available models from OpenRouter
+   * Cancel the current streaming (SSE) request, if any.
    */
-  async fetchAvailableModels(): Promise<OpenRouterModel[]> {
-    try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {})
-        }
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch models');
-      }
-      const data: OpenRouterModelsResponse = await response.json();
-      return data.data;
-    } catch (error) {
-      console.error('[OpenRouter] Error fetching models:', error);
-      throw error;
+  cancelStreaming(): void {
+    if (this.currentEventSource) {
+      this.cancelRequested = true;
+      this.currentEventSource.close();
+      this.currentEventSource = null;
+      this.requestInProgress = false;
+      // Optionally, you could emit an event or callback here for UI feedback
+      console.log('[OpenRouter SSE] Streaming cancelled by user.');
     }
   }
 
   /**
-   * Send a message to the OpenRouter API and get a streaming or non-streaming response
-   * If onPartialResponse is provided, will use streaming (SSE) if supported by the API
-   * Returns the full response string, or error string if failed
+   * Send a message to OpenRouter using Server-Sent Events (SSE) for true streaming.
+   * Calls onPartialResponse with each new chunk of content as it arrives.
+   * Returns the full response when complete, or an error object.
    */
   async sendMessage(
     message: string,
-    onPartialResponse?: (text: string) => void,
-    options?: Partial<Omit<ORRequest, 'messages' | 'prompt' | 'model' | 'stream'>>
-  ): Promise<string> {
-    this.isCancelled = false;
+    onPartialResponse?: (text: string) => void
+  ): Promise<string | { error: string }> {
     if (!this.apiKey) {
-      return "API key not set. Please set your OpenRouter API key in the settings.";
+      console.error('[OpenRouter SSE] API key not set');
+      return { error: 'API key not set.' };
     }
-
-    // Add the user message to context
-    this.contextManager.addMessage('user', message);
-
-    // Prepare the messages for OpenRouter API
-    const messages: ORMessage[] = [
-      ...(this.customPrompt ? [{ role: 'system' as const, content: this.customPrompt }] : []),
-      ...this.contextManager.getHistory()
-    ];
-
-    // Build request body
+    if (this.requestInProgress) {
+      return { error: 'A request is already in progress. Please wait for the current response to finish.' };
+    }
+    if (this.lastMessage && message.trim() === this.lastMessage.trim()) {
+      return { error: 'Duplicate message detected. Please modify your input before sending again.' };
+    }
+    this.requestInProgress = true;
+    this.lastMessage = message;
+    if (!onPartialResponse) {
+      const reqBody: ORRequest = {
+        model: this.model,
+        messages: [{ role: 'user', content: message }],
+        stream: false,
+      };
+      try {
+        console.log('[OpenRouter SSE] Sending non-streaming request:', reqBody);
+        const response: AxiosResponse<ORResponse> = await axios.post(
+          'https://openrouter.ai/api/v1/chat/completions',
+          reqBody,
+          {
+            headers: {
+              Authorization: `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        this._updateRateLimitInfo(response.headers);
+        // Check for rate limit error in response
+        if ((response.data as any)?.error?.code === 429) {
+          const msg =
+            '⚠️ Rate limit exceeded for OpenRouter free models.\n\nYou have reached your daily free request limit. Add credits to your OpenRouter account to unlock more requests. See https://openrouter.ai/pricing for details.';
+          this.requestInProgress = false;
+          return msg;
+        }
+        const content: string = response.data.choices?.[0]?.message?.content || '';
+        console.log('[OpenRouter SSE] Non-streaming response:', content);
+        this.requestInProgress = false;
+        return content;
+      } catch (error: any) {
+        // Axios error: check for rate limit in error response
+        const errData = error?.response?.data;
+        this._updateRateLimitInfo(error?.response?.headers);
+        if (errData?.error?.code === 429) {
+          const msg =
+            '⚠️ Rate limit exceeded for OpenRouter free models.\n\nYou have reached your daily free request limit. Add credits to your OpenRouter account to unlock more requests. See https://openrouter.ai/pricing for details.';
+          this.requestInProgress = false;
+          return msg;
+        }
+        console.error('[OpenRouter SSE] Non-streaming request error:', error);
+        this.requestInProgress = false;
+        return { error: error?.message || 'Request error' };
+      }
+    }
+    // SSE streaming logic
+    const url = 'https://openrouter.ai/api/v1/chat/completions';
     const reqBody: ORRequest = {
-      model: this.currentModel,
-      messages,
-      stream: !!onPartialResponse,
-      ...options
+      model: this.model,
+      messages: [{ role: 'user', content: message }],
+      stream: true,
     };
-
-    // Log all request data
-    console.log('[OpenRouter] Sending request:', {
-      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-      apiKeySet: !!this.apiKey,
-      model: this.currentModel,
-      messages,
-      stream: reqBody.stream,
-      options
-    });
-
-    try {
-      if (reqBody.stream && onPartialResponse) {
-        // --- Streaming via SSE ---
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
+    let fullResponse = '';
+    let resolved = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    console.log('[OpenRouter SSE] Attempting SSE connection:', { url, reqBody });
+    return new Promise<string | { error: string }>((resolve) => {
+      try {
+        const es = new EventSource(url, {
           headers: {
+            Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
           },
-          body: JSON.stringify(reqBody)
+          method: 'POST',
+          body: JSON.stringify(reqBody),
         });
-        if (!response.ok || !response.body) {
-          const errorText = await response.text();
-          throw new Error(`OpenRouter API error: ${errorText}`);
-        }
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
-        let fullResponse = '';
-        let done = false;
-        while (!done && !this.isCancelled) {
-          const { value, done: streamDone } = await reader.read();
-          done = streamDone;
-          if (value) {
-            buffer += decoder.decode(value, { stream: true });
-            // SSE: split by newlines, process each event
-            let lines = buffer.split(/\r?\n/);
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-              if (line.startsWith('data:')) {
-                const dataStr = line.slice(5).trim();
-                if (!dataStr || dataStr === '[DONE]') continue;
-                try {
-                  const chunk: ORResponse = JSON.parse(dataStr);
-                  const choice = chunk.choices?.[0];
-                  if (choice && 'delta' in choice && choice.delta && typeof choice.delta.content === 'string') {
-                    fullResponse += choice.delta.content;
-                    onPartialResponse(fullResponse);
-                  }
-                  // Handle finish_reason
-                  if (choice && 'finish_reason' in choice && choice.finish_reason) {
-                    done = true;
-                    break;
-                  }
-                } catch (err) {
-                  // Ignore parse errors for keep-alive/comments
-                }
-              }
+        this.currentEventSource = es;
+        this.cancelRequested = false;
+        console.log('[OpenRouter SSE] EventSource created');
+        timeoutId = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            es.close();
+            this.requestInProgress = false;
+            this.currentEventSource = null;
+            console.error('[OpenRouter SSE] Timeout: No response from server after 60s');
+            resolve({ error: 'SSE timeout: No response from server.' });
+          }
+        }, 60000);
+        es.addEventListener('open', () => {
+          console.log('[OpenRouter SSE] Connection opened');
+        });
+        es.addEventListener('message', (event: { data: string | null }) => {
+          if (this.cancelRequested) {
+            if (!resolved) {
+              resolved = true;
+              es.close();
+              if (timeoutId) clearTimeout(timeoutId);
+              this.requestInProgress = false;
+              this.currentEventSource = null;
+              resolve({ error: 'Streaming cancelled by user.' });
             }
+            return;
           }
-        }
-        if (this.isCancelled) {
-          const stopped = fullResponse.trim() + ' [Generation stopped]';
-          this.contextManager.addMessage('assistant', stopped);
-          return stopped;
-        }
-        this.contextManager.addMessage('assistant', fullResponse);
-        return fullResponse;
-      } else {
-        // --- Non-streaming ---
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
-          },
-          body: JSON.stringify(reqBody)
+          console.log('[OpenRouter SSE] Message event:', event.data);
+          if (!event.data) return;
+          // Check for rate limit error in SSE stream
+          try {
+            const json = JSON.parse(event.data);
+            if (json?.error?.code === 429) {
+              const msg =
+                '⚠️ Rate limit exceeded for OpenRouter free models.\n\nYou have reached your daily free request limit. Add credits to your OpenRouter account to unlock more requests. See https://openrouter.ai/pricing for details.';
+              if (!resolved) {
+                resolved = true;
+                es.close();
+                if (timeoutId) clearTimeout(timeoutId);
+                this.requestInProgress = false;
+                this.currentEventSource = null;
+                if (onPartialResponse) onPartialResponse(msg);
+                resolve(msg);
+              }
+              return;
+            }
+            // Append only the new content chunk (delta)
+            const content: string | undefined = json.choices?.[0]?.delta?.content;
+            if (content && !this.cancelRequested) {
+              fullResponse += content;
+              console.log('[OpenRouter SSE] Appending new content chunk:', content);
+              onPartialResponse(fullResponse);
+            }
+          } catch (e) {
+            console.warn('[OpenRouter SSE] JSON parse error:', e, event.data);
+          }
+          if (event.data === '[DONE]') {
+            if (!resolved) {
+              resolved = true;
+              es.close();
+              if (timeoutId) clearTimeout(timeoutId);
+              this.requestInProgress = false;
+              this.currentEventSource = null;
+              console.log('[OpenRouter SSE] [DONE] received, closing connection.');
+              resolve(fullResponse);
+            }
+            return;
+          }
         });
-        if (!response.ok) {
-          const errorText = await response.text();
-          if (errorText.includes('not a valid model ID')) {
-            return `The model \"${this.currentModel}\" is not a valid OpenRouter model. Please check your model name or select a valid model from https://openrouter.ai/models.`;
+        es.addEventListener('error', (event: any) => {
+          console.error('[OpenRouter SSE] Error event:', event);
+          this.currentEventSource = null;
+          if (!resolved) {
+            resolved = true;
+            es.close();
+            if (timeoutId) clearTimeout(timeoutId);
+            this.requestInProgress = false;
+            resolve({ error: 'SSE connection error' });
           }
-          throw new Error(`OpenRouter API error: ${errorText}`);
-        }
-        const data: ORResponse = await response.json();
-        // Handle error in response
-        const err = data.choices?.[0]?.error;
-        if (err) {
-          return `OpenRouter error: ${err.message}`;
-        }
-        const choice = data.choices?.[0];
-        let fullResponse = '';
-        if (choice) {
-          if ('message' in choice && choice.message && typeof choice.message.content === 'string') {
-            fullResponse = choice.message.content;
-          } else if ('text' in choice && typeof choice.text === 'string') {
-            fullResponse = choice.text;
+        });
+        es.addEventListener('close', () => {
+          console.log('[OpenRouter SSE] Connection closed');
+          this.currentEventSource = null;
+          if (!resolved) {
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            this.requestInProgress = false;
+            resolve(fullResponse || { error: 'SSE connection closed unexpectedly.' });
           }
+        });
+      } catch (error: any) {
+        console.error('[OpenRouter SSE] Exception during EventSource setup:', error);
+        this.currentEventSource = null;
+        if (!resolved) {
+          resolved = true;
+          if (timeoutId) clearTimeout(timeoutId);
+          this.requestInProgress = false;
+          resolve({ error: error?.message || 'SSE request error' });
         }
-        this.contextManager.addMessage('assistant', fullResponse);
-        return fullResponse;
       }
-    } catch (error) {
-      const err = error as Error;
-      if (typeof err.message === 'string' && err.message.includes('not a valid model ID')) {
-        return `The model \"${this.currentModel}\" is not a valid OpenRouter model. Please check your model name or select a valid model from https://openrouter.ai/models.`;
-      }
-      console.error('[OpenRouter] Error generating response:', error);
-      return "I'm sorry, I encountered an error processing your request. Please try again.";
+    });
+  }
+
+  private _updateRateLimitInfo(headers: any): void {
+    if (!headers) return;
+    const limit = parseInt(headers['x-ratelimit-limit'] || headers['X-RateLimit-Limit'] || '', 10);
+    const remaining = parseInt(headers['x-ratelimit-remaining'] || headers['X-RateLimit-Remaining'] || '', 10);
+    const reset = parseInt(headers['x-ratelimit-reset'] || headers['X-RateLimit-Reset'] || '', 10);
+    if (!isNaN(limit) && !isNaN(remaining) && !isNaN(reset)) {
+      this.lastRateLimitInfo = { limit, remaining, reset };
     }
   }
 }
 
-// Export a singleton instance
 export const openRouterService = new OpenRouterService();

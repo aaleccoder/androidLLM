@@ -96,5 +96,24 @@ const writeFile = async (data: any, password: string, verbose: boolean = false):
   }
 }
 
-export { loadFile, writeFile };
+/**
+ * Deletes the data.json file from the app's file system
+ * @returns {Promise<boolean>} True if deleted, false if file did not exist
+ */
+const deleteFile = async (): Promise<boolean> => {
+  try {
+    const filePath = `${FileSystem.documentDirectory}data.json`;
+    const fileInfo = await FileSystem.getInfoAsync(filePath);
+    if (fileInfo.exists) {
+      await FileSystem.deleteAsync(filePath);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error deleting data.json file:', error);
+    throw error;
+  }
+};
+
+export { loadFile, writeFile, deleteFile };
 

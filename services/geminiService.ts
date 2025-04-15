@@ -65,6 +65,7 @@ export class GeminiService {
   private chatSession: ChatSession | null = null;
   private apiKey: string = '';
   private isCancelled: boolean = false;
+  private requestInProgress: boolean = false;
   private currentModel: GeminiModel = 'gemini-1.5-pro';
   private customPrompt: string | undefined;
   
@@ -180,82 +181,125 @@ export class GeminiService {
   }
   
   /**
-   * Cancel the current generation
+   * Cancel the current generation (streaming or simulated)
    */
   cancelGeneration(): void {
     this.isCancelled = true;
+    this.requestInProgress = false;
   }
 
   /**
-   * Send a message to the Gemini API and get a streaming response
-   * Implements chain of thought reasoning by allowing the model to "think"
-   * before providing a final answer
+   * Send a message to the Gemini API and get a streaming response (true streaming if supported, else simulated)
+   * @param message The user message
+   * @param onPartialResponse Callback for streaming output
+   * @returns The full response string
    */
   async sendMessage(message: string, onPartialResponse?: (text: string) => void): Promise<string> {
-    this.isCancelled = false;
-    
-    if (!this.model) {
-      return "API key not set. Please set your Gemini API key in the settings.";
+    if (this.requestInProgress) {
+      return 'A request is already in progress. Please wait for the current response to finish.';
     }
-    
+    this.isCancelled = false;
+    this.requestInProgress = true;
+
+    if (!this.model) {
+      this.requestInProgress = false;
+      return 'API key not set. Please set your Gemini API key in the settings.';
+    }
+
     if (!this.chatSession) {
       try {
         await this.initializeChat();
       } catch (error) {
+        this.requestInProgress = false;
         return "Couldn't initialize chat session. Please check your API key in settings.";
       }
     }
-    
+
     try {
-      // Add the user message to context
       this.contextManager.addMessage('user', message);
-      
-      // Get the final response using the chat session to maintain context
       if (!this.chatSession) {
+        this.requestInProgress = false;
         throw new Error('Chat session not initialized');
       }
-      
+
+      // Try true streaming if available
+      const supportsStreaming = typeof this.chatSession.sendMessageStream === 'function';
+      if (supportsStreaming && onPartialResponse) {
+        let fullResponse = '';
+        try {
+          // @ts-ignore: sendMessageStream is not in all typings
+          const stream = await this.chatSession.sendMessageStream([{ text: message }]);
+          // Use stream.stream if available (Node.js SDK)
+          const asyncIterable = (typeof stream.stream === 'function' || typeof stream.stream === 'object') ? stream.stream : stream;
+          // Explicitly check for async iterator
+          if (
+            asyncIterable &&
+            typeof asyncIterable === 'object' &&
+            typeof (asyncIterable as AsyncIterable<unknown>)[Symbol.asyncIterator] === 'function'
+          ) {
+            for await (const chunk of asyncIterable as AsyncIterable<any>) {
+              if (this.isCancelled) {
+                const stopped = fullResponse.trim() + ' [Generation stopped]';
+                this.contextManager.addMessage('model', stopped);
+                this.requestInProgress = false;
+                return stopped;
+              }
+              const part = typeof chunk.text === 'function' ? chunk.text() : '';
+              if (part) {
+                fullResponse += part;
+                onPartialResponse(fullResponse);
+              }
+            }
+            if (!this.isCancelled) {
+              this.contextManager.addMessage('model', fullResponse);
+              this.requestInProgress = false;
+              return fullResponse;
+            }
+            const stopped = fullResponse.trim() + ' [Generation stopped]';
+            this.contextManager.addMessage('model', stopped);
+            this.requestInProgress = false;
+            return stopped;
+          }
+        } catch (err) {
+          this.requestInProgress = false;
+          // Fallback to simulated streaming below
+        }
+      }
+
+      // Fallback: Simulate streaming
       try {
-        // Send message and get response
         const result = await this.chatSession.sendMessage([{ text: message }]);
         const fullResponse = result.response.text();
         let currentResponse = '';
-        
-        // Simulate streaming by sending partial responses
         if (onPartialResponse) {
           const words = fullResponse.split(' ');
-          
-          // Send partial responses word by word with a small delay
           for (const word of words) {
             if (this.isCancelled) {
-              // If cancelled, add what we have so far to context and return
               const finalResponse = currentResponse.trim() + ' [Generation stopped]';
               this.contextManager.addMessage('model', finalResponse);
+              this.requestInProgress = false;
               return finalResponse;
             }
-            
             currentResponse += word + ' ';
             onPartialResponse(currentResponse.trim());
-            // Small delay to simulate typing
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 30));
           }
         }
-        
-        // Only add to context and return full response if not cancelled
         if (!this.isCancelled) {
           this.contextManager.addMessage('model', fullResponse);
+          this.requestInProgress = false;
           return fullResponse;
         }
-        
         const stoppedResponse = currentResponse.trim() + ' [Generation stopped]';
         this.contextManager.addMessage('model', stoppedResponse);
+        this.requestInProgress = false;
         return stoppedResponse;
       } catch (error) {
-        console.error('Error processing response:', error);
-        throw error;
+        this.requestInProgress = false;
+        return "I'm sorry, I encountered an error processing your request. Please try again.";
       }
     } catch (error) {
-      console.error('Error generating response:', error);
+      this.requestInProgress = false;
       return "I'm sorry, I encountered an error processing your request. Please try again.";
     }
   }

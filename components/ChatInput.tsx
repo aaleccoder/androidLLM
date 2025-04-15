@@ -29,6 +29,13 @@ interface ChatInputProps {
   addOpenRouterModel: (modelName: string) => void;
   className?: string;
   style?: ViewStyle | ViewStyle[];
+  // New props for unified model switcher
+  showModelMenu: boolean;
+  setShowModelMenu: (show: boolean) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  filteredModels: ModelOption[];
+  connectionStatus: 'connected' | 'error' | 'unknown';
 }
 
 const ChatInput = ({
@@ -41,31 +48,17 @@ const ChatInput = ({
   addOpenRouterModel,
   className,
   style,
+  showModelMenu,
+  setShowModelMenu,
+  searchQuery,
+  setSearchQuery,
+  filteredModels,
+  connectionStatus,
 }: ChatInputProps) => {
   const [input, setInput] = useState("");
   const { isDarkMode } = useTheme();
-  const [showModelMenu, setShowModelMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showAddModel, setShowAddModel] = useState(false);
   const [newModelName, setNewModelName] = useState('');
-
-  // Combine Gemini and OpenRouter models
-  const openRouterModelOptions: ModelOption[] = openRouterModels.map(m => ({
-    id: m,
-    displayName: m,
-    provider: 'openrouter'
-  }));
-  const ALL_MODELS: ModelOption[] = [...GEMINI_MODELS, ...openRouterModelOptions];
-
-  const fuse = new Fuse(ALL_MODELS, {
-    keys: ['displayName'],
-    threshold: 0.4,
-    includeScore: true
-  });
-
-  const filteredModels = searchQuery
-    ? fuse.search(searchQuery).map(result => result.item)
-    : ALL_MODELS;
 
   const handleSend = useCallback(() => {
     if (input.trim()) {
@@ -122,6 +115,8 @@ const ChatInput = ({
           onPress={() => setShowModelMenu(true)}
           className={`flex-row items-center space-x-2 px-3 py-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'} mb-4`}
         >
+          {/* Status indicator */}
+          <View className="w-2 h-2 rounded-full" style={{ backgroundColor: connectionStatus === 'connected' ? '#22c55e' : connectionStatus === 'error' ? '#ef4444' : '#fbbf24', marginRight: 8 }} />
           <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
           <Text className={`text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>
             {getModelDisplayName(currentModel)}

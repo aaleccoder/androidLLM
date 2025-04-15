@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScrollView, Animated, Pressable, TouchableWithoutFeedback, View, ViewStyle, Text, TouchableOpacity, Modal } from 'react-native';
+import { ScrollView, Animated, Pressable, TouchableWithoutFeedback, View, ViewStyle, Text, TouchableOpacity, Modal, FlatList, TextInput, Keyboard } from 'react-native';
 import { useTheme } from '../context/themeContext';
 import { ChatThread, useData } from '../context/dataContext';
 import { useAuth } from '../hooks/useAuth';
@@ -30,10 +30,12 @@ export const ChatSidebar = ({
   style
 }: ChatSidebarProps) => {
   const { isDarkMode } = useTheme();
-  const { data, deleteChatThread } = useData();
+  const { data, deleteChatThread, saveData, deleteChatThreadInMemory, updateChatThreadInMemory, updateChatThread } = useData();
   const { getCurrentPassword } = useAuth();
   const [deleteConfirmThreadId, setDeleteConfirmThreadId] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState<string>('');
 
   const translateX = useRef(new Animated.Value(-300)).current;
 
@@ -87,9 +89,13 @@ export const ChatSidebar = ({
         return;
       }
 
-      await deleteChatThread(deleteConfirmThreadId, password);
+      // In-memory delete for instant UI
+      deleteChatThreadInMemory(deleteConfirmThreadId);
       setDeleteConfirmThreadId(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Persist after UI update
+      await deleteChatThread(deleteConfirmThreadId, password);
 
       if (deleteConfirmThreadId === currentThreadId || (data?.chatThreads || []).length <= 1) {
         onClose();
@@ -120,12 +126,49 @@ export const ChatSidebar = ({
     }
   };
 
+  const getLastMessagePreview = (thread: ChatThread): string => {
+    if (!thread.messages || thread.messages.length === 0) return '';
+    const last = thread.messages[thread.messages.length - 1];
+    return last.text.length > 40 ? last.text.slice(0, 40) + '…' : last.text;
+  };
+
+  const startRenaming = (thread: ChatThread) => {
+    setRenamingThreadId(thread.id);
+    setRenameValue(thread.title);
+  };
+
+  const cancelRenaming = () => {
+    setRenamingThreadId(null);
+    setRenameValue('');
+  };
+
+  const confirmRename = async (thread: ChatThread) => {
+    if (!renameValue.trim() || renameValue === thread.title) {
+      cancelRenaming();
+      return;
+    }
+    try {
+      const password = getCurrentPassword();
+      if (!password) return;
+
+      // In-memory update for instant UI
+      updateChatThreadInMemory(thread.id, thread.messages);
+
+      // Persist after UI update
+      await updateChatThread(thread.id, thread.messages, password);
+      cancelRenaming();
+    } catch (e) {
+      cancelRenaming();
+    }
+  };
+
   const chatThreads = data?.chatThreads
     ? [...data.chatThreads].sort((a, b) => b.updatedAt - a.updatedAt)
     : [];
 
-  const currentChat = data?.chatThreads?.find(thread => thread.id === currentThreadId);
-  const canCreateNewChat = !currentChat || currentChat.messages.length > 0;
+  const currentChat: ChatThread | undefined = data?.chatThreads?.find(thread => thread.id === currentThreadId);
+  // Only disable if the current chat exists and is empty
+  const canCreateNewChat: boolean = !(currentChat && currentChat.messages.length === 0);
 
   return (
     <>
@@ -140,7 +183,7 @@ export const ChatSidebar = ({
             top: 0,
             left: 0,
             bottom: 0,
-            width: 300,
+            width: 320,
             zIndex: 20,
             shadowColor: '#000',
             shadowOffset: { width: 2, height: 0 },
@@ -153,63 +196,75 @@ export const ChatSidebar = ({
         className={className}
       >
         <View className={`flex-1 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-          <View className="space-y-2 p-2">
+          <View className="space-y-2 p-4">
             <TouchableOpacity
               onPress={handleNewChat}
               disabled={!canCreateNewChat}
-              className={`flex-row items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'} ${!canCreateNewChat ? 'opacity-50' : ''}`}
+              className={`flex-row items-center space-x-2 p-3 rounded-xl ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'} ${!canCreateNewChat ? 'opacity-50' : ''}`}
             >
-              <Plus size={16} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-              <Text className={`${isDarkMode ? 'text-white' : 'text-black'}`}>New Chat</Text>
+              <Plus size={18} color={isDarkMode ? "#FFFFFF" : "#000000"} />
+              <Text className={`font-semibold text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>New Chat</Text>
             </TouchableOpacity>
-
+          </View>
+          <View className="flex-1 px-2 pb-4">
             {chatThreads.length === 0 ? (
               <View className="flex-1 justify-center items-center p-2">
-                <Text className={`text-center ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                  No chat history yet. Start a new conversation!
-                </Text>
+                <Text className={`text-center ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>No chat history yet. Start a new conversation!</Text>
               </View>
             ) : (
-              <ScrollView>
-                <View className="space-y-1">
-                  {chatThreads.map(thread => {
-                    const isSelected = thread.id === currentThreadId;
-                    return (
-                      <Pressable
-                        key={thread.id}
-                        onPress={() => handleSelectThread(thread.id)}
+              <FlatList
+                data={chatThreads}
+                keyExtractor={item => item.id}
+                renderItem={({ item: thread }) => {
+                  const isSelected = thread.id === currentThreadId;
+                  const isRenaming = renamingThreadId === thread.id;
+                  return (
+                    <Pressable
+                      onPress={() => handleSelectThread(thread.id)}
+                      disabled={isRenaming}
+                    >
+                      <View
+                        className={`flex-row items-center p-2 mb-1 rounded-lg transition-all duration-150 ${isSelected ? (isDarkMode ? 'bg-blue-900/40 border-l-4 border-blue-500' : 'bg-blue-100 border-l-4 border-blue-500') : (isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100')}`}
+                        style={{ minHeight: 48 }}
                       >
-                        <View
-                          className={`p-3 rounded-lg ${isSelected ? isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100' : ''} 
-                            ${isSelected ? 'border-l-2 border-blue-500' : ''}`}
-                        >
-                          <View className="flex-row items-center justify-between">
-                            <View className="flex-1">
-                              <Text 
-                                className={`${isSelected ? 'text-blue-500' : isDarkMode ? 'text-white' : 'text-black'}`}
-                                numberOfLines={1}
-                              >
+                        <View className="flex-1">
+                          {isRenaming ? (
+                            <TextInput
+                              value={renameValue}
+                              onChangeText={setRenameValue}
+                              onBlur={() => confirmRename(thread)}
+                              onSubmitEditing={() => confirmRename(thread)}
+                              className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}
+                              autoFocus
+                              maxLength={40}
+                              style={{ padding: 0, margin: 0 }}
+                            />
+                          ) : (
+                            <TouchableOpacity onLongPress={() => startRenaming(thread)}>
+                              <Text className={`text-sm font-medium ${isSelected ? 'text-blue-500' : isDarkMode ? 'text-white' : 'text-black'}`} numberOfLines={1}>
                                 {thread.title}
                               </Text>
-                              <Text className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>
-                                {formatDate(thread.updatedAt)}
-                              </Text>
-                            </View>
-                            {enableEditing && (
-                              <TouchableOpacity
-                                onPress={() => confirmDeleteThread(thread.id)}
-                                className="p-2 rounded-lg"
-                              >
-                                <Trash size={14} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-                              </TouchableOpacity>
-                            )}
-                          </View>
+                            </TouchableOpacity>
+                          )}
+                          <Text className={`text-xs mt-0.5 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} numberOfLines={1}>
+                            {getLastMessagePreview(thread) || 'No messages yet'}
+                          </Text>
                         </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
+                        <View className="items-end ml-2">
+                          <Text className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{formatDate(thread.updatedAt)}</Text>
+                          {enableEditing && !isRenaming && (
+                            <TouchableOpacity onPress={() => confirmDeleteThread(thread.id)} className="p-1 rounded-lg mt-1">
+                              <Trash size={14} color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                }}
+                contentContainerStyle={{ paddingBottom: 24 }}
+                style={{ flex: 1 }}
+              />
             )}
           </View>
         </View>
