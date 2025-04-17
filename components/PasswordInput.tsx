@@ -1,6 +1,5 @@
 import React from 'react';
 import { TextInput, TextInputProps } from 'react-native';
-import { useTheme } from '../context/themeContext';
 
 interface PasswordInputProps {
   placeholder: string;
@@ -15,7 +14,6 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   setPassword, 
   autoFocus 
 }) => {
-  const { isDarkMode } = useTheme();
 
   return (
     <TextInput
@@ -26,10 +24,10 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
       autoFocus={autoFocus}
       className={`
         text-base px-4 py-3
-        ${isDarkMode ? 'bg-zinc-800 text-white' : 'bg-zinc-100 text-black'}
+        bg-zinc-800 text-white
       rounded-md border-white`}
-      placeholderTextColor={isDarkMode ? '#666' : '#999'}
-      selectionColor={isDarkMode ? '#fff' : '#000'}
+      placeholderTextColor='#666'
+      selectionColor='#fff'
     />
   );
 };

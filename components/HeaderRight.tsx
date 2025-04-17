@@ -15,25 +15,25 @@ export const HeaderRight = ({ isDarkMode, setIsDarkMode, setShowSettings }: Head
   return (
     <View style={{ flexDirection: "row", gap: 8 }}>
       <IconButton
-        icon={isDarkMode ? "white-balance-sunny" : "brightness-3"}
+        icon="brightness-3"
         size={20}
         onPress={() => setIsDarkMode(!isDarkMode)}
-        style={{ backgroundColor: isDarkMode ? "#222" : "#fff" }}
-        iconColor={isDarkMode ? "#fff" : "#222"}
+        style={{ backgroundColor: "#222" }}
+        iconColor="#fff"
       />
       <IconButton
         icon="cog"
         size={20}
         onPress={() => setShowSettings(true)}
-        style={{ backgroundColor: isDarkMode ? "#222" : "#fff" }}
-        iconColor={isDarkMode ? "#fff" : "#222"}
+        style={{ backgroundColor: "#222" }}
+        iconColor="#fff"
       />
       <IconButton
         icon="logout"
         size={20}
         onPress={logout}
-        style={{ backgroundColor: isDarkMode ? "#222" : "#fff" }}
-        iconColor={isDarkMode ? "#fff" : "#222"}
+        style={{ backgroundColor: "#222" }}
+        iconColor="#fff"
       />
     </View>
   );

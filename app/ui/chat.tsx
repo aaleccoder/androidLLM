@@ -13,7 +13,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BackHandler, AppState, View, ScrollView, Modal, Text, TouchableOpacity, ActivityIndicator, FlatList, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useTheme } from '../../context/themeContext';
 import { ProtectedRoute, useAuth } from "../../hooks/useAuth";
 import { useNavigation } from "expo-router";
 import { ChatMessage } from '../../components/ChatMessage';
@@ -26,6 +25,7 @@ import { ChatSidebar } from '../../components/ChatSidebar';
 import { Welcome } from '../../components/Welcome';
 import Fuse from 'fuse.js';
 import { TitleBar } from '../../components/TitleBar';
+import ModelPickerModal from '../../components/ModelPickerModal';
 
 // Create a global event emitter for cross-component communication
 import { EventEmitter } from 'events';
@@ -50,7 +50,6 @@ const GEMINI_MODELS: ModelOption[] = [
 ];
 
 export default function Chat() {
-  const { isDarkMode, theme } = useTheme();
   const { data, createChatThread, updateChatThread, setActiveThread, deleteChatThread, setActiveThreadInMemory, updateChatThreadInMemory, deleteChatThreadInMemory, saveData } = useData();
   const { getCurrentPassword } = useAuth();
 
@@ -497,29 +496,59 @@ See https://openrouter.ai/models for available models.`,
         <TitleBar
           {...props}
           showMenuButton={true}
-          isDarkMode={isDarkMode}
+          isDarkMode={true}
           setIsDarkMode={() => {}}
           setShowSettings={openSettings}
         />
       )
     });
-  }, [isDarkMode]);
+  }, []);
 
   return (
     <ProtectedRoute>
-      <View className={`flex-1 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'} border-b ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
-        <StatusBar style={isDarkMode ? "light" : "dark"}/>
+      <View className="flex-1 bg-zinc-900 border-b border-zinc-800">
+        <StatusBar style="light"/>
         <View className="flex-1">
           {/* Button to check OpenRouter models */}
           <View className="px-4 pt-2 pb-1">
             <TouchableOpacity
               onPress={handleShowModels}
-              className={`rounded-lg px-4 py-2 ${isDarkMode ? 'bg-blue-700' : 'bg-blue-500'}`}
+              className="rounded-lg px-4 py-2 bg-blue-700"
               accessibilityLabel="Check available OpenRouter models"
             >
               <Text className="text-white text-center font-semibold">Check OpenRouter Models</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Model Picker Modal Button & Modal (now above messages, under TitleBar) */}
+          <View className="px-4 pb-2">
+            <TouchableOpacity
+              onPress={() => setShowModelMenu(true)}
+              className="flex-row items-center space-x-2 px-3 py-2 rounded-lg bg-zinc-800"
+              accessibilityLabel="Open model picker"
+            >
+              <View className="w-2 h-2 rounded-full" style={{ backgroundColor: connectionStatus === 'connected' ? '#22c55e' : connectionStatus === 'error' ? '#ef4444' : '#fbbf24', marginRight: 8 }} />
+              <Text className="text-base text-white">
+                {`${currentModel.displayName} (${currentModel.provider === 'gemini' ? 'Gemini' : 'OpenRouter'})`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <ModelPickerModal
+            visible={showModelMenu}
+            onRequestClose={() => setShowModelMenu(false)}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filteredModels={filteredModels}
+            onModelChange={handleModelChangeUnified}
+            currentModel={currentModel}
+            connectionStatus={connectionStatus}
+            showAddModel={false}
+            setShowAddModel={() => {}}
+            newModelName={''}
+            setNewModelName={() => {}}
+            handleAddOpenRouterModel={() => {}}
+          />
+
           {showWelcome ? (
             <Welcome />
           ) : (
@@ -575,9 +604,9 @@ See https://openrouter.ai/models for available models.`,
             onRequestClose={() => setIsModelsModalOpen(false)}
           >
             <View className="flex-1 justify-end bg-black/50">
-              <View className={`rounded-t-2xl p-4 max-h-[80%] ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>  
+              <View className="rounded-t-2xl p-4 max-h-[80%] bg-zinc-900">  
                 <View className="flex-row items-center mb-2">
-                  <Text className={`text-xl font-bold flex-1 ${isDarkMode ? 'text-white' : 'text-black'}`}>Available OpenRouter Models</Text>
+                  <Text className="text-xl font-bold flex-1 text-white">Available OpenRouter Models</Text>
                   <TouchableOpacity
                     onPress={() => { setIsModelsModalOpen(false); setModelSearch(''); }}
                     className="p-2 ml-2"
@@ -590,30 +619,30 @@ See https://openrouter.ai/models for available models.`,
                   value={modelSearch}
                   onChangeText={setModelSearch}
                   placeholder="Search models by name, id, or description..."
-                  placeholderTextColor={isDarkMode ? '#aaa' : '#666'}
-                  className={`mb-3 px-3 py-2 rounded-lg border ${isDarkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-100 border-zinc-300 text-black'}`}
+                  placeholderTextColor="#aaa"
+                  className="mb-3 px-3 py-2 rounded-lg border bg-zinc-800 border-zinc-700 text-white"
                   autoFocus
                   accessibilityLabel="Search models"
                   returnKeyType="search"
                 />
                 {isModelsLoading ? (
-                  <ActivityIndicator size="large" color={isDarkMode ? '#fff' : '#000'} className="mt-8" />
+                  <ActivityIndicator size="large" color="#fff" className="mt-8" />
                 ) : modelsError ? (
                   <Text className="text-red-500 mt-4">{modelsError}</Text>
                 ) : filteredModelsAvailable.length === 0 ? (
-                  <Text className={`text-center mt-8 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>No models found.</Text>
+                  <Text className="text-center mt-8 text-zinc-400">No models found.</Text>
                 ) : (
                   <FlatList
                     data={filteredModelsAvailable}
                     keyExtractor={item => item.id}
                     style={{ marginTop: 8 }}
                     renderItem={({ item }) => (
-                      <View className={`mb-4 p-3 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}> 
-                        <Text className={`font-semibold text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>{item.name}</Text>
-                        <Text className={`text-xs mb-1 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>{item.id}</Text>
-                        <Text className={`text-sm mb-1 ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{item.description}</Text>
-                        <Text className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Context: {item.context_length} tokens</Text>
-                        <Text className={`text-xs ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Prompt: ${item.pricing.prompt} | Completion: ${item.pricing.completion}</Text>
+                      <View className="mb-4 p-3 rounded-lg bg-zinc-800"> 
+                        <Text className="font-semibold text-base text-white">{item.name}</Text>
+                        <Text className="text-xs mb-1 text-zinc-400">{item.id}</Text>
+                        <Text className="text-sm mb-1 text-zinc-300">{item.description}</Text>
+                        <Text className="text-xs text-zinc-400">Context: {item.context_length} tokens</Text>
+                        <Text className="text-xs text-zinc-400">Prompt: ${item.pricing.prompt} | Completion: ${item.pricing.completion}</Text>
                         <TouchableOpacity
                           onPress={() => handleAddAndSwitchModel(item)}
                           className={`mt-2 px-3 py-1 rounded bg-blue-600 ${openRouterModels.includes(item.id) ? 'opacity-60' : ''}`}

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollView, Animated, Pressable, TouchableWithoutFeedback, View, ViewStyle, Text, TouchableOpacity, Modal, FlatList, TextInput, Keyboard } from 'react-native';
-import { useTheme } from '../context/themeContext';
 import { ChatThread, useData } from '../context/dataContext';
 import { useAuth } from '../hooks/useAuth';
 import * as Haptics from 'expo-haptics';
@@ -29,7 +28,6 @@ export const ChatSidebar = ({
   className,
   style
 }: ChatSidebarProps) => {
-  const { isDarkMode } = useTheme();
   const { data, deleteChatThread, saveData, deleteChatThreadInMemory, updateChatThreadInMemory, updateChatThread } = useData();
   const { getCurrentPassword } = useAuth();
   const [deleteConfirmThreadId, setDeleteConfirmThreadId] = useState<string | null>(null);
@@ -195,21 +193,21 @@ export const ChatSidebar = ({
         ]}
         className={className}
       >
-        <View className={`flex-1 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
+        <View className="flex-1 bg-zinc-900">
           <View className="space-y-2 p-4">
             <TouchableOpacity
               onPress={handleNewChat}
               disabled={!canCreateNewChat}
-              className={`flex-row items-center space-x-2 p-3 rounded-xl ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'} ${!canCreateNewChat ? 'opacity-50' : ''}`}
+              className={`flex-row items-center space-x-2 p-3 rounded-xl bg-zinc-800 ${!canCreateNewChat ? 'opacity-50' : ''}`}
             >
-              <Plus size={18} color={isDarkMode ? "#FFFFFF" : "#000000"} />
-              <Text className={`font-semibold text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>New Chat</Text>
+              <Plus size={18} color="#FFFFFF" />
+              <Text className="font-semibold text-base text-white">New Chat</Text>
             </TouchableOpacity>
           </View>
           <View className="flex-1 px-2 pb-4">
             {chatThreads.length === 0 ? (
               <View className="flex-1 justify-center items-center p-2">
-                <Text className={`text-center ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>No chat history yet. Start a new conversation!</Text>
+                <Text className="text-center text-zinc-400">No chat history yet. Start a new conversation!</Text>
               </View>
             ) : (
               <FlatList
@@ -224,7 +222,7 @@ export const ChatSidebar = ({
                       disabled={isRenaming}
                     >
                       <View
-                        className={`flex-row items-center p-2 mb-1 rounded-lg transition-all duration-150 ${isSelected ? (isDarkMode ? 'bg-blue-900/40 border-l-4 border-blue-500' : 'bg-blue-100 border-l-4 border-blue-500') : (isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100')}`}
+                        className={`flex-row items-center p-2 mb-1 rounded-lg transition-all duration-150 ${isSelected ? 'bg-blue-900/40 border-l-4 border-blue-500' : 'bg-zinc-800'}`}
                         style={{ minHeight: 48 }}
                       >
                         <View className="flex-1">
@@ -234,27 +232,27 @@ export const ChatSidebar = ({
                               onChangeText={setRenameValue}
                               onBlur={() => confirmRename(thread)}
                               onSubmitEditing={() => confirmRename(thread)}
-                              className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-black'}`}
+                              className="text-sm font-medium text-white"
                               autoFocus
                               maxLength={40}
                               style={{ padding: 0, margin: 0 }}
                             />
                           ) : (
                             <TouchableOpacity onLongPress={() => startRenaming(thread)}>
-                              <Text className={`text-sm font-medium ${isSelected ? 'text-blue-500' : isDarkMode ? 'text-white' : 'text-black'}`} numberOfLines={1}>
+                              <Text className={`text-sm font-medium ${isSelected ? 'text-blue-500' : 'text-white'}`} numberOfLines={1}>
                                 {thread.title}
                               </Text>
                             </TouchableOpacity>
                           )}
-                          <Text className={`text-xs mt-0.5 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} numberOfLines={1}>
+                          <Text className="text-xs mt-0.5 text-zinc-400" numberOfLines={1}>
                             {getLastMessagePreview(thread) || 'No messages yet'}
                           </Text>
                         </View>
                         <View className="items-end ml-2">
-                          <Text className={`text-xs ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{formatDate(thread.updatedAt)}</Text>
+                          <Text className="text-xs text-zinc-500">{formatDate(thread.updatedAt)}</Text>
                           {enableEditing && !isRenaming && (
                             <TouchableOpacity onPress={() => confirmDeleteThread(thread.id)} className="p-1 rounded-lg mt-1">
-                              <Trash size={14} color={isDarkMode ? "#FFFFFF" : "#000000"} />
+                              <Trash size={14} color="#FFFFFF" />
                             </TouchableOpacity>
                           )}
                         </View>
@@ -277,18 +275,18 @@ export const ChatSidebar = ({
         onRequestClose={handleCancelDelete}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className={`rounded-t-2xl p-4 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+          <View className="rounded-t-2xl p-4 bg-zinc-800">
             <View className="space-y-4">
-              <Text className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-black'}`}>Delete Chat</Text>
-              <Text className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>
+              <Text className="text-xl font-semibold text-white">Delete Chat</Text>
+              <Text className="text-zinc-300">
                 Are you sure you want to delete this conversation? This action cannot be undone.
               </Text>
               <View className="flex-row justify-between space-x-3">
                 <TouchableOpacity
                   onPress={handleCancelDelete}
-                  className={`flex-1 p-3 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}
+                  className="flex-1 p-3 rounded-lg bg-zinc-700"
                 >
-                  <Text className={`text-center ${isDarkMode ? 'text-white' : 'text-black'}`}>Cancel</Text>
+                  <Text className="text-center text-white">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleDeleteThread}

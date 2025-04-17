@@ -1,6 +1,5 @@
 import { Stack } from "expo-router";
 import { useState, useMemo, useEffect } from "react";
-import { ThemeContext, createTheme } from '../context/themeContext';
 import { DataProvider } from '../context/dataContext';
 import { AuthProvider } from '../hooks/useAuth';
 import { View } from 'react-native';
@@ -14,10 +13,7 @@ import { Settings } from '../components/Settings';
 import "./globals.css";
 
 export default function RootLayout() {
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-
-  const theme = useMemo(() => createTheme(isDarkMode), [isDarkMode]);
 
   const [loaded, error] = useFonts({
     Inter_400Regular,
@@ -39,7 +35,6 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme: () => setIsDarkMode(!isDarkMode) }}>
       <DataProvider>
         <AuthProvider>
           <View style={{ flex: 1 }}>
@@ -51,8 +46,6 @@ export default function RootLayout() {
                     return (
                       <TitleBar
                         showMenuButton={isChat}
-                        isDarkMode={isDarkMode}
-                        setIsDarkMode={setIsDarkMode}
                         setShowSettings={isChat ? setShowSettings : undefined}
                       />
                     );
@@ -87,6 +80,5 @@ export default function RootLayout() {
           </View>
         </AuthProvider>
       </DataProvider>
-    </ThemeContext.Provider>
   );
 }

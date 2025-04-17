@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { useTheme } from '../context/themeContext';
 import Markdown from 'react-native-markdown-display';
 import { markdownStyles } from '../utils/markdownStyles';
 
@@ -12,11 +11,10 @@ interface ChatMessageProps {
 }
 
 export const ChatMessage = ({ content, role, isLast = false, isGenerating = false }: ChatMessageProps) => {
-  const { isDarkMode } = useTheme();
   const isUser = role === 'user';
   
-  // Get appropriate markdown styles based on role and theme
-  const mdStyles = markdownStyles(isDarkMode, role);
+  // Get appropriate markdown styles based on role
+  const mdStyles = markdownStyles(role);
 
   return (
     <View className={`${isUser ? 'self-end ml-16' : 'self-start w-full'} mb-3`}>
@@ -25,9 +23,7 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
           px-2.5 py-1.5 rounded-xl
           ${isUser 
             ? 'bg-blue-600 rounded-tr-sm rounded-br-sm shadow-sm shadow-blue-800/20' 
-            : isDarkMode 
-              ? 'bg-zinc-700 rounded-lg shadow-sm shadow-black/20 border-l-3 border-l-blue-600' 
-              : 'bg-zinc-100 rounded-lg shadow-sm shadow-black/10 border-l-3 border-l-blue-600'
+            : 'bg-zinc-700 rounded-lg shadow-sm shadow-black/20 border-l-3 border-l-blue-600'
           }
         `}
       >

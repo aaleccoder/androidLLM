@@ -5,23 +5,23 @@ import { StyleSheet } from "react-native";
  * @param isDarkMode - Whether dark mode is enabled
  * @param role - The role of the message sender (user or assistant)
  */
-export const markdownStyles = (isDarkMode: boolean, role: 'user' | 'assistant') => {
+export const markdownStyles = (role: 'user' | 'assistant') => {
   // Common styles for all elements
   const baseTextColor = {
     user: "#FFFFFF", // User messages always have white text
-    assistant: isDarkMode ? "#FFFFFF" : "#111827" // Assistant messages: white in dark mode, dark in light mode
+    assistant: "#FFFFFF" // Assistant messages: white in dark mode, dark in light mode
   };
 
   // Background colors for code blocks and inline code
   const codeBackgroundColor = {
     user: "rgba(0, 0, 0, 0.25)",
-    assistant: isDarkMode ? "rgba(0, 0, 0, 0.25)" : "rgba(0, 0, 0, 0.05)"
+    assistant: "rgba(0, 0, 0, 0.25)"
   };
 
   // Link colors
   const linkColor = {
     user: "#B5FCCD", // Accent color for user messages
-    assistant: isDarkMode ? "#3A59D1" : "#3A59D1" // Primary blue for assistant messages
+    assistant: "#3A59D1" // Primary blue for assistant messages
   };
 
   // Base styles for text elements with smaller fonts

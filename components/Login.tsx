@@ -15,10 +15,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Text } from 'react-native';
 import { Shield, AlertTriangle, UserPlus, LogIn } from 'lucide-react-native';
 import { DeleteConfirmation } from './DeleteConfirmation';
-import { useTheme } from '../context/themeContext';
 
 export function Login() {
-  const { theme, isDarkMode } = useTheme();
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -56,19 +54,19 @@ export function Login() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1 }}
     >
-      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
-      <View className={`flex-1 justify-center items-center px-8 py-12 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-        <View className={`w-full max-w-md rounded-3xl overflow-hidden elevation-5 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+      <StatusBar style="light" />
+      <View className="flex-1 justify-center items-center px-8 py-12 bg-zinc-900">
+        <View className="w-full max-w-md rounded-3xl overflow-hidden elevation-5 bg-zinc-800">
           <View className="px-10 py-12 w-full">
             {/* Logo & App Title Section */}
             <View className="items-center mb-12">
-              <View className={`rounded-full p-7 mb-6 ${isDarkMode ? 'bg-zinc-700' : 'bg-blue-100'}`}>
-                <Shield size={48} color={isDarkMode ? '#fff' : '#3b82f6'} />
+              <View className="rounded-full p-7 mb-6 bg-zinc-700">
+                <Shield size={48} color="#fff" />
               </View>
-              <Text className={`text-3xl font-bold mb-3 ${isDarkMode ? 'text-zinc-100' : 'text-blue-500'}`}>
+              <Text className="text-3xl font-bold mb-3 text-zinc-100">
                 ChatLLM
               </Text>
-              <Text className={`text-base text-center opacity-80 ${isDarkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>
+              <Text className="text-base text-center opacity-80 text-zinc-300">
                 {isNewUser ? 'Create your secure password' : 'Welcome back'}
               </Text>
             </View>
@@ -76,7 +74,7 @@ export function Login() {
             {/* Form Section */}
             <View>
               <View className="mb-6">
-                <View className={`rounded-xl overflow-hidden mb-4 ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'} border-zinc-400 border`}>
+                <View className="rounded-xl overflow-hidden mb-4 bg-zinc-700 border-zinc-400 border">
                   <PasswordInput
                     placeholder="Password"
                     password={password}
@@ -86,7 +84,7 @@ export function Login() {
                 </View>
                 
                 {isNewUser && (
-                  <View className={`rounded-xl overflow-hidden ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}>
+                  <View className="rounded-xl overflow-hidden bg-zinc-700">
                     <PasswordInput
                       placeholder="Confirm Password"
                       password={confirmPassword}
@@ -110,7 +108,7 @@ export function Login() {
               {/* Action Buttons */}
               <View className="mt-6">
                 <TouchableOpacity
-                  className={`flex-row items-center justify-center py-3 rounded-3xl mb-4 ${isDarkMode ? 'bg-blue-600' : 'bg-blue-500'}`}
+                  className="flex-row items-center justify-center py-3 rounded-3xl mb-4 bg-blue-600"
                   onPress={handleSubmit}
                 >
                   {isNewUser ? <UserPlus size={24} color="white" /> : <LogIn size={24} color="white" />}
@@ -121,13 +119,13 @@ export function Login() {
                 
                 {!isNewUser && (
                   <TouchableOpacity
-                    className={`flex-row items-center justify-center py-3 rounded-3xl border ${isDarkMode ? 'border-red-400' : 'border-red-500'}`}
+                    className="flex-row items-center justify-center py-3 rounded-3xl border border-red-400"
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setShowDeleteConfirm(true);
                     }}
                   >
-                    <Text className={isDarkMode ? 'text-red-400' : 'text-red-500'}>
+                    <Text className="text-red-400">
                       Reset All Data
                     </Text>
                   </TouchableOpacity>

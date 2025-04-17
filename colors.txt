@@ -1,4 +1,7 @@
-#3A59D1 Primary
-#3D90D7 Secondary
-#7AC6D2 Other
-#B5FCCD Accent
+
+
+
+#1E1E1E Primary
+#494949 Background
+#EBE9FC Text
+#61BA82 Accent

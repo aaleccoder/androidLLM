@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { Keyboard, TextInput, View, StyleSheet, ViewStyle, TextStyle, Modal, Text, TouchableOpacity, Pressable } from 'react-native';
-import { useTheme } from '../context/themeContext';
 import * as Haptics from 'expo-haptics';
 import { openRouterService } from '../services/openRouterService';
 import Fuse from 'fuse.js';
@@ -29,7 +28,6 @@ interface ChatInputProps {
   addOpenRouterModel: (modelName: string) => void;
   className?: string;
   style?: ViewStyle | ViewStyle[];
-  // New props for unified model switcher
   showModelMenu: boolean;
   setShowModelMenu: (show: boolean) => void;
   searchQuery: string;
@@ -48,17 +46,8 @@ const ChatInput = ({
   addOpenRouterModel,
   className,
   style,
-  showModelMenu,
-  setShowModelMenu,
-  searchQuery,
-  setSearchQuery,
-  filteredModels,
-  connectionStatus,
 }: ChatInputProps) => {
   const [input, setInput] = useState("");
-  const { isDarkMode } = useTheme();
-  const [showAddModel, setShowAddModel] = useState(false);
-  const [newModelName, setNewModelName] = useState('');
 
   const handleSend = useCallback(() => {
     if (input.trim()) {
@@ -74,22 +63,6 @@ const ChatInput = ({
     onStopGeneration?.();
   }, [onStopGeneration]);
 
-  const handleModelChange = (model: ModelOption) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onModelChange(model);
-    setShowModelMenu(false);
-    setSearchQuery('');
-  };
-
-  const handleAddOpenRouterModel = () => {
-    if (newModelName.trim()) {
-      addOpenRouterModel(newModelName.trim());
-      setNewModelName('');
-      setShowAddModel(false);
-      setShowModelMenu(false);
-    }
-  };
-
   const hasInput = input.trim().length > 0;
 
   const getModelDisplayName = (model: ModelOption) => {
@@ -98,7 +71,7 @@ const ChatInput = ({
 
   return (
     <View
-      className={`p-4 border-t ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}
+      className={`p-4 border-t bg-zinc-900 border-zinc-800`}
       style={[
         {
           shadowColor: '#000',
@@ -111,24 +84,12 @@ const ChatInput = ({
       ]}
     >
       <View className="space-y-2">
-        <TouchableOpacity
-          onPress={() => setShowModelMenu(true)}
-          className={`flex-row items-center space-x-2 px-3 py-2 rounded-lg ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'} mb-4`}
-        >
-          {/* Status indicator */}
-          <View className="w-2 h-2 rounded-full" style={{ backgroundColor: connectionStatus === 'connected' ? '#22c55e' : connectionStatus === 'error' ? '#ef4444' : '#fbbf24', marginRight: 8 }} />
-          <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-          <Text className={`text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>
-            {getModelDisplayName(currentModel)}
-          </Text>
-        </TouchableOpacity>
-
         <View className="flex-row items-center space-x-3">
-          <View className={`flex-1 flex-row items-center rounded-lg px-3 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+          <View className={`flex-1 flex-row items-center rounded-lg px-3 bg-zinc-800`}>
             <TextInput
-              className={`flex-1 py-2 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
+              className={`flex-1 py-2 text-base text-white`}
               placeholder={`Message ${currentModel.provider === 'gemini' ? 'Gemini' : 'OpenRouter'}...`}
-              placeholderTextColor={isDarkMode ? '#a3a3a3' : '#737373'}
+              placeholderTextColor='#a3a3a3'
               value={input}
               onChangeText={setInput}
               multiline={true}
@@ -144,120 +105,21 @@ const ChatInput = ({
             ) : hasInput ? (
               <TouchableOpacity
                 onPress={handleSend}
-                className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}
+                className={`p-2 rounded-lg bg-zinc-700`}
               >
-                <Send size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                <Send size={20} color="#FFFFFF" />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
-                className={`p-2 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}
+                className={`p-2 rounded-lg bg-zinc-700`}
               >
-                <Image size={20} color={isDarkMode ? "#FFFFFF" : "#111827"} />
+                <Image size={20} color="#FFFFFF" />
               </TouchableOpacity>
             )}
           </View>
         </View>
       </View>
-
-      <Modal
-        visible={showModelMenu}
-        onRequestClose={() => setShowModelMenu(false)}
-        transparent={true}
-        animationType="slide"
-      >
-        <Pressable 
-          className="flex-1 bg-black/50"
-          onPress={() => setShowModelMenu(false)}
-        >
-          <View className="flex-1 justify-end">
-            <View className={`rounded-t-2xl p-4 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'}`}>
-              <View className="space-y-4">
-                <View className={`flex-row items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}>
-                  <Search size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                  <TextInput
-                    className={`flex-1 text-base ${isDarkMode ? 'text-white' : 'text-black'}`}
-                    placeholder="Search models..."
-                    placeholderTextColor={isDarkMode ? '#a3a3a3' : '#737373'}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                      <X size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {filteredModels.map((option) => (
-                  <TouchableOpacity
-                    key={option.id}
-                    onPress={() => handleModelChange(option)}
-                    className={`flex-row items-center space-x-2 p-3 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'} my-2`}
-                  >
-                    <Zap size={16} color={isDarkMode ? "#FFFFFF" : "#111827"} />
-                    <Text className={`text-base ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                      {getModelDisplayName(option)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-
-                <TouchableOpacity
-                  onPress={() => setShowAddModel(true)}
-                  className={`flex-row items-center space-x-2 p-3 rounded-lg border ${isDarkMode ? 'border-blue-400 bg-zinc-800' : 'border-blue-500 bg-zinc-100'} my-2`}
-                >
-                  <Zap size={16} color={isDarkMode ? "#3A59D1" : "#3A59D1"} />
-                  <Text className={`text-base ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}>
-                    + Add OpenRouter Model
-                  </Text>
-                </TouchableOpacity>
-
-                {filteredModels.length === 0 && (
-                  <View className="p-4">
-                    <Text className={`text-center ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                      No models found
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-        </Pressable>
-        <Modal
-          visible={showAddModel}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowAddModel(false)}
-        >
-          <View className="flex-1 justify-center items-center bg-black/50">
-            <View className={`w-[90%] rounded-2xl p-5 ${isDarkMode ? 'bg-zinc-800' : 'bg-white'}`}>
-              <Text className={`text-lg font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-black'}`}>Add OpenRouter Model</Text>
-              <TextInput
-                value={newModelName}
-                onChangeText={setNewModelName}
-                placeholder="Enter model name (e.g. mistral-7b)"
-                placeholderTextColor={isDarkMode ? '#666' : '#999'}
-                className={`px-4 py-3 text-base rounded-lg ${isDarkMode ? 'bg-zinc-700 text-white' : 'bg-zinc-100 text-black'}`}
-                autoFocus
-              />
-              <View className="flex-row justify-end space-x-3 mt-4">
-                <TouchableOpacity
-                  onPress={() => setShowAddModel(false)}
-                  className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-100'}`}
-                >
-                  <Text className={isDarkMode ? 'text-white' : 'text-black'}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAddOpenRouterModel}
-                  className="px-4 py-2 rounded-lg bg-blue-500"
-                >
-                  <Text className="text-white">Add</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      </Modal>
     </View>
   );
 };
