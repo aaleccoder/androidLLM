@@ -24,10 +24,10 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
       autoFocus={autoFocus}
       className={`
         text-base px-4 py-3
-        bg-zinc-800 text-white
-      rounded-md border-white`}
+        bg-background text-text
+      rounded-md border-accent`}
       placeholderTextColor='#666'
-      selectionColor='#fff'
+      selectionColor='#EBE9FC'
     />
   );
 };

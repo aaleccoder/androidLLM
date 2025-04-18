@@ -7,10 +7,10 @@ import { SafeAreaView } from "react-native";
 import { useFonts } from "expo-font";
 import { Inter_400Regular } from "@expo-google-fonts/inter";
 import * as SplashScreen from "expo-splash-screen";
-import { globalEventEmitter } from "./ui/chat";
 import { TitleBar } from '../components/TitleBar';
 import { Settings } from '../components/Settings';
 import "./globals.css";
+import { globalEventEmitter } from "@/utils/event";
 
 export default function RootLayout() {
   const [showSettings, setShowSettings] = useState(false);

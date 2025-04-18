@@ -22,8 +22,8 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
         className={`
           px-2.5 py-1.5 rounded-xl
           ${isUser 
-            ? 'bg-blue-600 rounded-tr-sm rounded-br-sm shadow-sm shadow-blue-800/20' 
-            : 'bg-zinc-700 rounded-lg shadow-sm shadow-black/20 border-l-3 border-l-blue-600'
+            ? 'bg-accent rounded-tr-sm rounded-br-sm shadow-sm shadow-accent/20' 
+            : 'bg-background rounded-lg shadow-sm shadow-black/20 border-l-3 border-l-accent'
           }
         `}
       >
@@ -37,7 +37,7 @@ export const ChatMessage = ({ content, role, isLast = false, isGenerating = fals
           <View
             className={`
               w-0.5 h-2.5 ml-0.5 mt-0.5
-              bg-white
+              bg-text
               animate-pulse
             `}
           />

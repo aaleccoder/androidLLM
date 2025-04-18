@@ -26,10 +26,9 @@ import { Welcome } from '../../components/Welcome';
 import Fuse from 'fuse.js';
 import { TitleBar } from '../../components/TitleBar';
 import ModelPickerModal from '../../components/ModelPickerModal';
+import { globalEventEmitter } from "@/utils/event";
+import { ChevronDown } from 'lucide-react-native';
 
-// Create a global event emitter for cross-component communication
-import { EventEmitter } from 'events';
-export const globalEventEmitter = new EventEmitter();
 
 // ModelOption type for ChatInput
 interface ModelOption {
@@ -59,6 +58,8 @@ export default function Chat() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [apiKeySet, setApiKeySet] = useState<boolean>(false);
   const [showSidebar, setShowSidebar] = useState<boolean>(false);
+  const [sidebarAnimating, setSidebarAnimating] = useState<boolean>(false); // NEW
+  const [sidebarMounted, setSidebarMounted] = useState<boolean>(false); // NEW
   const [currentThreadId, setCurrentThreadId] = useState<string | undefined>(data?.activeThreadId);
   const [editingEnabled, setEditingEnabled] = useState<boolean>(false);
   const [openRouterModels, setOpenRouterModels] = useState<string[]>([]);
@@ -479,6 +480,11 @@ See https://openrouter.ai/models for available models.`,
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  const handleSidebarClose = () => {
+    setShowSidebar(false);
+    setSidebarAnimating(true);
+  };
+
   // Compute connection status for ChatInput
   type ConnectionStatus = 'connected' | 'error' | 'unknown';
   const connectionStatus: ConnectionStatus = React.useMemo(() => {
@@ -506,31 +512,34 @@ See https://openrouter.ai/models for available models.`,
 
   return (
     <ProtectedRoute>
-      <View className="flex-1 bg-zinc-900 border-b border-zinc-800">
+      <View className="flex-1 bg-background border-b border-zinc-800">
         <StatusBar style="light"/>
         <View className="flex-1">
           {/* Button to check OpenRouter models */}
-          <View className="px-4 pt-2 pb-1">
+          {/* <View className="px-4 pt-2 pb-1">
             <TouchableOpacity
               onPress={handleShowModels}
-              className="rounded-lg px-4 py-2 bg-blue-700"
+              className="rounded-lg px-4 py-2 bg-blue-600"
               accessibilityLabel="Check available OpenRouter models"
             >
               <Text className="text-white text-center font-semibold">Check OpenRouter Models</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {/* Model Picker Modal Button & Modal (now above messages, under TitleBar) */}
           <View className="px-4 pb-2">
             <TouchableOpacity
               onPress={() => setShowModelMenu(true)}
-              className="flex-row items-center space-x-2 px-3 py-2 rounded-lg bg-zinc-800"
+              className="flex-row items-center justify-center px-3 py-2 rounded-lg bg-background"
               accessibilityLabel="Open model picker"
+              style={{ minHeight: 40 }}
             >
-              <View className="w-2 h-2 rounded-full" style={{ backgroundColor: connectionStatus === 'connected' ? '#22c55e' : connectionStatus === 'error' ? '#ef4444' : '#fbbf24', marginRight: 8 }} />
-              <Text className="text-base text-white">
-                {`${currentModel.displayName} (${currentModel.provider === 'gemini' ? 'Gemini' : 'OpenRouter'})`}
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Text className="text-base text-white mr-1">
+                  {`${currentModel.displayName} (${currentModel.provider === 'gemini' ? 'Gemini' : 'OpenRouter'})`}
+                </Text>
+                <ChevronDown size={20} color="#61BA82" />
+              </View>
             </TouchableOpacity>
           </View>
           <ModelPickerModal
@@ -585,10 +594,12 @@ See https://openrouter.ai/models for available models.`,
             connectionStatus={connectionStatus}
           />
           
-          {showSidebar && (
+          {(showSidebar || sidebarMounted) && (
             <ChatSidebar
-              isVisible={true}
-              onClose={() => setShowSidebar(false)}
+              isVisible={showSidebar}
+              onClose={handleSidebarClose}
+              onMount={() => setSidebarMounted(true)} // NEW PROP
+              onFullyClosed={() => setSidebarMounted(false)} // NEW PROP
               onNewChat={handleNewChat}
               currentThreadId={currentThreadId}
               onSelectThread={handleSelectThread}
@@ -619,14 +630,14 @@ See https://openrouter.ai/models for available models.`,
                   value={modelSearch}
                   onChangeText={setModelSearch}
                   placeholder="Search models by name, id, or description..."
-                  placeholderTextColor="#aaa"
-                  className="mb-3 px-3 py-2 rounded-lg border bg-zinc-800 border-zinc-700 text-white"
+                  placeholderTextColor="#a1a1aa" // zinc-400
+                  className="mb-3 px-3 py-2 rounded-lg border bg-zinc-800 border-zinc-700 text-white placeholder-zinc-400"
                   autoFocus
                   accessibilityLabel="Search models"
                   returnKeyType="search"
                 />
                 {isModelsLoading ? (
-                  <ActivityIndicator size="large" color="#fff" className="mt-8" />
+                  <ActivityIndicator size="large" color="#22c55e" className="mt-8" />
                 ) : modelsError ? (
                   <Text className="text-red-500 mt-4">{modelsError}</Text>
                 ) : filteredModelsAvailable.length === 0 ? (

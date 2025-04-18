@@ -24,25 +24,25 @@ export const DeleteConfirmation: React.FC<DeleteConfirmationProps> = ({
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-center items-center bg-black/50">
-        <View className="w-[80%] rounded-2xl p-5 bg-zinc-800">
-          <Text className="text-xl font-bold mb-3 text-white">
+        <View className="w-[80%] rounded-2xl p-5 bg-primary">
+          <Text className="text-xl font-bold mb-3 text-text">
             {title}
           </Text>
-          <Text className="text-base mb-5 text-zinc-300">
+          <Text className="text-base mb-5 text-text opacity-80">
             {message}
           </Text>
           <View className="flex-row justify-end space-x-3">
             <TouchableOpacity
               onPress={onClose}
-              className="px-4 py-2 rounded-lg bg-zinc-700"
+              className="px-4 py-2 rounded-lg bg-background"
             >
-              <Text className="text-white">Cancel</Text>
+              <Text className="text-text">Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onDelete}
-              className="px-4 py-2 rounded-lg bg-red-500"
+              className="px-4 py-2 rounded-lg bg-accent"
             >
-              <Text className="text-white">Delete</Text>
+              <Text className="text-text">Delete</Text>
             </TouchableOpacity>
           </View>
         </View>

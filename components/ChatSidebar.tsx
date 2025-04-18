@@ -1,15 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScrollView, Animated, Pressable, TouchableWithoutFeedback, View, ViewStyle, Text, TouchableOpacity, Modal, FlatList, TextInput, Keyboard } from 'react-native';
+import { ScrollView, Animated, Pressable, TouchableWithoutFeedback, View, ViewStyle, Text, TouchableOpacity, Modal, FlatList, TextInput, Keyboard, SafeAreaView, Dimensions } from 'react-native';
 import { ChatThread, useData } from '../context/dataContext';
 import { useAuth } from '../hooks/useAuth';
 import * as Haptics from 'expo-haptics';
 
 // Import Lucide icons
-import { Plus, X, Trash } from "lucide-react-native";
+import { Plus, X, Trash, Search, SquarePen } from "lucide-react-native";
 
 interface ChatSidebarProps {
   isVisible: boolean;
   onClose: () => void;
+  onMount?: () => void; // NEW PROP
+  onFullyClosed?: () => void; // NEW PROP
   onNewChat: () => void;
   currentThreadId?: string;
   onSelectThread: (threadId: string) => void;
@@ -21,6 +23,8 @@ interface ChatSidebarProps {
 export const ChatSidebar = ({
   isVisible,
   onClose,
+  onMount,
+  onFullyClosed,
   onNewChat,
   currentThreadId,
   onSelectThread,
@@ -34,11 +38,21 @@ export const ChatSidebar = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchFocused, setSearchFocused] = useState<boolean>(false);
+  const [shouldRenderSidebar, setShouldRenderSidebar] = useState<boolean>(isVisible);
 
   const translateX = useRef(new Animated.Value(-300)).current;
+  const sidebarWidth = useRef(new Animated.Value(320)).current;
+  const searchInputRef = useRef<TextInput>(null);
+
+  const deviceWidth = Dimensions.get('window').width;
+  const COLLAPSED_WIDTH = 320;
+  const EXPANDED_WIDTH = Math.min(400, deviceWidth - 32); // 32px margin
 
   useEffect(() => {
     if (isVisible) {
+      setShouldRenderSidebar(true);
       Animated.timing(translateX, {
         toValue: 0,
         duration: 300,
@@ -49,11 +63,30 @@ export const ChatSidebar = ({
         toValue: -300,
         duration: 300,
         useNativeDriver: true,
-      }).start();
+      }).start(({ finished }) => {
+        if (finished) {
+          setShouldRenderSidebar(false);
+          if (onFullyClosed) onFullyClosed(); // Notify parent
+        }
+      });
     }
   }, [isVisible]);
 
-  if (!isVisible) return null;
+  useEffect(() => {
+    Animated.timing(sidebarWidth, {
+      toValue: searchFocused ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  }, [searchFocused, EXPANDED_WIDTH]);
+
+  useEffect(() => {
+    if (shouldRenderSidebar && onMount) {
+      onMount();
+    }
+  }, [shouldRenderSidebar, onMount]);
+
+  if (!shouldRenderSidebar) return null;
 
   const handlePressOverlay = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -164,6 +197,15 @@ export const ChatSidebar = ({
     ? [...data.chatThreads].sort((a, b) => b.updatedAt - a.updatedAt)
     : [];
 
+  const filteredThreads = chatThreads.filter(thread => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      thread.title.toLowerCase().includes(q) ||
+      (getLastMessagePreview(thread) || '').toLowerCase().includes(q)
+    );
+  });
+
   const currentChat: ChatThread | undefined = data?.chatThreads?.find(thread => thread.id === currentThreadId);
   // Only disable if the current chat exists and is empty
   const canCreateNewChat: boolean = !(currentChat && currentChat.messages.length === 0);
@@ -174,6 +216,7 @@ export const ChatSidebar = ({
         <View className="absolute inset-0 bg-black/50 z-10" />
       </TouchableWithoutFeedback>
 
+      {/* Outer Animated.View for translateX (native driver) */}
       <Animated.View
         style={[
           {
@@ -181,7 +224,6 @@ export const ChatSidebar = ({
             top: 0,
             left: 0,
             bottom: 0,
-            width: 320,
             zIndex: 20,
             shadowColor: '#000',
             shadowOffset: { width: 2, height: 0 },
@@ -193,79 +235,123 @@ export const ChatSidebar = ({
         ]}
         className={className}
       >
-        <View className="flex-1 bg-zinc-900">
-          <View className="space-y-2 p-4">
-            <TouchableOpacity
-              onPress={handleNewChat}
-              disabled={!canCreateNewChat}
-              className={`flex-row items-center space-x-2 p-3 rounded-xl bg-zinc-800 ${!canCreateNewChat ? 'opacity-50' : ''}`}
-            >
-              <Plus size={18} color="#FFFFFF" />
-              <Text className="font-semibold text-base text-white">New Chat</Text>
-            </TouchableOpacity>
-          </View>
-          <View className="flex-1 px-2 pb-4">
-            {chatThreads.length === 0 ? (
-              <View className="flex-1 justify-center items-center p-2">
-                <Text className="text-center text-zinc-400">No chat history yet. Start a new conversation!</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={chatThreads}
-                keyExtractor={item => item.id}
-                renderItem={({ item: thread }) => {
-                  const isSelected = thread.id === currentThreadId;
-                  const isRenaming = renamingThreadId === thread.id;
-                  return (
-                    <Pressable
-                      onPress={() => handleSelectThread(thread.id)}
-                      disabled={isRenaming}
-                    >
-                      <View
-                        className={`flex-row items-center p-2 mb-1 rounded-lg transition-all duration-150 ${isSelected ? 'bg-blue-900/40 border-l-4 border-blue-500' : 'bg-zinc-800'}`}
-                        style={{ minHeight: 48 }}
+        {/* SafeAreaView to keep sidebar within screen bounds */}
+        <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
+          {/* Inner Animated.View for width (JS driver) */}
+          <Animated.View style={{ width: sidebarWidth, flex: 1, height: '100%' }}>
+            <View className="flex-1 bg-primary">
+              <View className="space-y-2 p-4">
+                <View className="flex-row items-center mb-2">
+                  {/* Search Bar */}
+                  <View className="flex-1 flex-row items-center bg-accent rounded-3xl p-5">
+                    {searchFocused ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          searchInputRef.current?.blur();
+                          setSearchFocused(false);
+                        }}
+                        accessibilityLabel="Back from search"
+                        style={{ marginRight: 8 }}
                       >
-                        <View className="flex-1">
-                          {isRenaming ? (
-                            <TextInput
-                              value={renameValue}
-                              onChangeText={setRenameValue}
-                              onBlur={() => confirmRename(thread)}
-                              onSubmitEditing={() => confirmRename(thread)}
-                              className="text-sm font-medium text-white"
-                              autoFocus
-                              maxLength={40}
-                              style={{ padding: 0, margin: 0 }}
-                            />
-                          ) : (
-                            <TouchableOpacity onLongPress={() => startRenaming(thread)}>
-                              <Text className={`text-sm font-medium ${isSelected ? 'text-blue-500' : 'text-white'}`} numberOfLines={1}>
-                                {thread.title}
+                        <X size={22} color="#181818" />
+                      </TouchableOpacity>
+                    ) : (
+                      <Search size={22} color="#181818" style={{ marginRight: 8 }} />
+                    )}
+                    <TextInput
+                      ref={searchInputRef}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      placeholder="Search chats..."
+                      placeholderTextColor="#181818"
+                      className="flex-1 text-text px-2 py-2"
+                      style={{ fontSize: 16 }}
+                      accessibilityLabel="Search chats"
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                      returnKeyType="search"
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setSearchFocused(false)}
+                    />
+                  </View>
+                  {/* New Chat Button outside search bar */}
+                  <TouchableOpacity
+                    onPress={handleNewChat}
+                    disabled={!canCreateNewChat}
+                    accessibilityLabel="New Chat"
+                    className={`ml-2 p-2 rounded-lg ${!canCreateNewChat ? 'opacity-50' : ''}`}
+                    style={{ marginLeft: 8 }}
+                  >
+                    <SquarePen size={32} color="#61BA82"/>
+                  </TouchableOpacity>
+                </View>
+                {/* Chats label */}
+                <Text className="text-lg font-semibold text-text mt-2 mb-2" accessibilityRole="header">Chats</Text>
+              </View>
+              <View className="flex-1 px-2 pb-4">
+                {filteredThreads.length === 0 ? (
+                  <View className="flex-1 justify-center items-center p-2">
+                    <Text className="text-center text-text opacity-60">No chat history yet. Start a new conversation!</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={filteredThreads}
+                    keyExtractor={item => item.id}
+                    renderItem={({ item: thread }) => {
+                      const isSelected = thread.id === currentThreadId;
+                      const isRenaming = renamingThreadId === thread.id;
+                      return (
+                        <Pressable
+                          onPress={() => handleSelectThread(thread.id)}
+                          disabled={isRenaming}
+                        >
+                          <View
+                            className={`flex-row items-center p-2 mb-1 rounded-lg transition-all duration-150 ${isSelected ? 'bg-accent/20 border-l-4 border-accent' : 'bg-background'}`}
+                            style={{ minHeight: 48 }}
+                          >
+                            <View className="flex-1">
+                              {isRenaming ? (
+                                <TextInput
+                                  value={renameValue}
+                                  onChangeText={setRenameValue}
+                                  onBlur={() => confirmRename(thread)}
+                                  onSubmitEditing={() => confirmRename(thread)}
+                                  className="text-sm font-medium text-text"
+                                  autoFocus
+                                  maxLength={40}
+                                  style={{ padding: 0, margin: 0 }}
+                                />
+                              ) : (
+                                <TouchableOpacity onLongPress={() => startRenaming(thread)}>
+                                  <Text className={`text-sm font-medium ${isSelected ? 'text-accent' : 'text-text'}`} numberOfLines={1}>
+                                    {thread.title}
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+                              <Text className="text-xs mt-0.5 text-text opacity-60" numberOfLines={1}>
+                                {getLastMessagePreview(thread) || 'No messages yet'}
                               </Text>
-                            </TouchableOpacity>
-                          )}
-                          <Text className="text-xs mt-0.5 text-zinc-400" numberOfLines={1}>
-                            {getLastMessagePreview(thread) || 'No messages yet'}
-                          </Text>
-                        </View>
-                        <View className="items-end ml-2">
-                          <Text className="text-xs text-zinc-500">{formatDate(thread.updatedAt)}</Text>
-                          {enableEditing && !isRenaming && (
-                            <TouchableOpacity onPress={() => confirmDeleteThread(thread.id)} className="p-1 rounded-lg mt-1">
-                              <Trash size={14} color="#FFFFFF" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                }}
-                contentContainerStyle={{ paddingBottom: 24 }}
-                style={{ flex: 1 }}
-              />
-            )}
-          </View>
-        </View>
+                            </View>
+                            <View className="items-end ml-2">
+                              <Text className="text-xs text-text opacity-40">{formatDate(thread.updatedAt)}</Text>
+                              {enableEditing && !isRenaming && (
+                                <TouchableOpacity onPress={() => confirmDeleteThread(thread.id)} className="p-1 rounded-lg mt-1">
+                                  <Trash size={14} color="#EBE9FC" />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    }}
+                    contentContainerStyle={{ paddingBottom: 24 }}
+                    style={{ flex: 1 }}
+                  />
+                )}
+              </View>
+            </View>
+          </Animated.View>
+        </SafeAreaView>
       </Animated.View>
 
       <Modal

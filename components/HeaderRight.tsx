@@ -18,22 +18,25 @@ export const HeaderRight = ({ isDarkMode, setIsDarkMode, setShowSettings }: Head
         icon="brightness-3"
         size={20}
         onPress={() => setIsDarkMode(!isDarkMode)}
-        style={{ backgroundColor: "#222" }}
-        iconColor="#fff"
+        style={{ backgroundColor: undefined }}
+        containerColor="var(--color-background)"
+        iconColor="#EBE9FC"
       />
       <IconButton
         icon="cog"
         size={20}
         onPress={() => setShowSettings(true)}
-        style={{ backgroundColor: "#222" }}
-        iconColor="#fff"
+        style={{ backgroundColor: undefined }}
+        containerColor="var(--color-background)"
+        iconColor="#EBE9FC"
       />
       <IconButton
         icon="logout"
         size={20}
         onPress={logout}
-        style={{ backgroundColor: "#222" }}
-        iconColor="#fff"
+        style={{ backgroundColor: undefined }}
+        containerColor="var(--color-background)"
+        iconColor="#EBE9FC"
       />
     </View>
   );

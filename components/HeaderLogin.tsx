@@ -14,10 +14,10 @@ export const IndexHeaderRight = ({ isDarkMode, setIsDarkMode }: HeaderLoginProps
 
   return (
     <TouchableOpacity
-      className="p-2 rounded-full bg-zinc-800"
+      className="p-2 rounded-full bg-background"
       onPress={() => setIsDarkMode(!isDarkMode)}
     >
-      <Sun size={20} color="#fff" />
+      <Sun size={20} color="#EBE9FC" />
     </TouchableOpacity>
   );
 };

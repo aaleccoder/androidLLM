@@ -174,16 +174,15 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
     >
       <SafeAreaView style={{ flex: 1, justifyContent: 'center' }}>
         <View className="flex-1 justify-end bg-black/50">
-          <View className="rounded-t-2xl bg-zinc-800"
-            style={{ maxHeight: '90%', marginBottom: 0, justifyContent: 'center', alignSelf: 'center', width: '100%' }}
-          >
-            <View className="px-4 py-3 border-b border-zinc-700 flex-row justify-between items-center">
-              <Text className="text-xl font-bold text-white">Settings</Text>
+          <View className="rounded-t-2xl bg-background w-full max-h-[90%] pb-2" style={{ alignSelf: 'center' }}>
+            <View className="px-4 py-3 border-b border-primary flex-row justify-between items-center">
+              <Text className="text-xl font-bold text-text">Settings</Text>
               <TouchableOpacity
                 onPress={onClose}
-                className="p-2 rounded-full bg-zinc-700"
+                className="p-2 rounded-full bg-accent"
+                accessibilityLabel="Close settings"
               >
-                <X size={20} color="#fff" />
+                <X size={24} color="#181818" />
               </TouchableOpacity>
             </View>
 
@@ -191,57 +190,59 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
               {isAuthenticated && (
                 <>
                   <View className="mb-6">
-                    <Text className="text-lg font-semibold mb-2 text-white">API Keys</Text>
+                    <Text className="text-lg font-semibold mb-2 text-text">API Keys</Text>
                     <View className="space-y-4">
                       <View>
-                        <Text className="text-base mb-1 text-zinc-300">Gemini API Key</Text>
-                        <View className="flex-row items-center rounded-lg overflow-hidden bg-zinc-700">
+                        <Text className="text-base mb-1 text-text/80">Gemini API Key</Text>
+                        <View className="flex-row items-center rounded-lg overflow-hidden bg-accent">
                           <TextInput
                             value={uiState.showGeminiKey ? formState.geminiKey : maskKey(formState.geminiKey)}
                             editable={false}
                             placeholder="Enter Gemini API Key"
-                            placeholderTextColor="#666"
+                            placeholderTextColor="#181818"
                             secureTextEntry={false}
-                            className="flex-1 px-4 py-3 text-base text-white"
+                            className="flex-1 px-4 py-3 text-base text-text"
                           />
                           <TouchableOpacity
                             onPress={() => handleShowApiKey('gemini')}
                             className="px-2"
+                            accessibilityLabel="Show/hide Gemini API key"
                           >
                             {uiState.showGeminiKey ? (
-                              <EyeOff size={18} color="#60a5fa" />
+                              <EyeOff size={24} color="#181818" />
                             ) : (
-                              <Eye size={18} color="#60a5fa" />
+                              <Eye size={24} color="#181818" />
                             )}
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => openEditKeyModal('gemini')} className="px-2">
-                            <Pencil size={18} color="#60a5fa" />
+                          <TouchableOpacity onPress={() => openEditKeyModal('gemini')} className="px-2" accessibilityLabel="Edit Gemini API key">
+                            <Pencil size={24} color="#181818" />
                           </TouchableOpacity>
                         </View>
                       </View>
                       <View>
-                        <Text className="text-base mb-1 text-zinc-300">OpenRouter API Key</Text>
-                        <View className="flex-row items-center rounded-lg overflow-hidden bg-zinc-700">
+                        <Text className="text-base mb-1 text-text/80">OpenRouter API Key</Text>
+                        <View className="flex-row items-center rounded-lg overflow-hidden bg-accent">
                           <TextInput
                             value={uiState.showGroqKey ? formState.openRouterKey : maskKey(formState.openRouterKey)}
                             editable={false}
                             placeholder="Enter OpenRouter API Key"
-                            placeholderTextColor="#666"
+                            placeholderTextColor="#181818"
                             secureTextEntry={false}
-                            className="flex-1 px-4 py-3 text-base text-white"
+                            className="flex-1 px-4 py-3 text-base text-text"
                           />
                           <TouchableOpacity
                             onPress={() => handleShowApiKey('openrouter')}
                             className="px-2"
+                            accessibilityLabel="Show/hide OpenRouter API key"
                           >
                             {uiState.showGroqKey ? (
-                              <EyeOff size={18} color="#60a5fa" />
+                              <EyeOff size={24} color="#181818" />
                             ) : (
-                              <Eye size={18} color="#60a5fa" />
+                              <Eye size={24} color="#181818" />
                             )}
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => openEditKeyModal('openrouter')} className="px-2">
-                            <Pencil size={18} color="#60a5fa" />
+                          <TouchableOpacity onPress={() => openEditKeyModal('openrouter')} className="px-2" accessibilityLabel="Edit OpenRouter API key">
+                            <Pencil size={24} color="#181818" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -255,33 +256,33 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
                     onRequestClose={handleCancelEditKey}
                   >
                     <View className="flex-1 justify-center items-center bg-black/50">
-                      <View className="w-[90%] rounded-2xl p-5 bg-zinc-800"> 
-                        <Text className="text-lg font-bold mb-3 text-white">Edit {editKeyModal === 'gemini' ? 'Gemini' : 'OpenRouter'} API Key</Text>
-                        <View className="flex-row items-center rounded-lg overflow-hidden mb-4 bg-zinc-700"> 
+                      <View className="w-[90%] rounded-2xl p-5 bg-background">
+                        <Text className="text-lg font-bold mb-3 text-text">Edit {editKeyModal === 'gemini' ? 'Gemini' : 'OpenRouter'} API Key</Text>
+                        <View className="flex-row items-center rounded-lg overflow-hidden mb-4 bg-accent">
                           <TextInput
                             value={editKeyMasked ? maskKey(editKeyValue) : editKeyValue}
                             onChangeText={setEditKeyValue}
                             placeholder={`Enter ${editKeyModal === 'gemini' ? 'Gemini' : 'OpenRouter'} API Key`}
-                            placeholderTextColor="#666"
+                            placeholderTextColor="#181818"
                             secureTextEntry={false}
-                            className="flex-1 px-4 py-3 text-base text-white"
+                            className="flex-1 px-4 py-3 text-base text-text"
                             editable={true}
                             autoFocus
                           />
-                          <TouchableOpacity onPress={() => setEditKeyMasked(m => !m)} className="px-2">
+                          <TouchableOpacity onPress={() => setEditKeyMasked(m => !m)} className="px-2" accessibilityLabel="Show/hide API key">
                             {editKeyMasked ? (
-                              <Eye size={18} color="#60a5fa" />
+                              <Eye size={18} color="#181818" />
                             ) : (
-                              <EyeOff size={18} color="#60a5fa" />
+                              <EyeOff size={18} color="#181818" />
                             )}
                           </TouchableOpacity>
                         </View>
-                        <View className="flex-row justify-end space-x-3 mt-2">
-                          <TouchableOpacity onPress={handleCancelEditKey} className="px-4 py-2 rounded-lg bg-zinc-700"> 
-                            <LucideX size={18} color="#fff" />
+                        <View className="flex-row justify-end mt-2">
+                          <TouchableOpacity onPress={handleCancelEditKey} className="px-4 py-2 rounded-lg bg-accent mr-4">
+                            <LucideX size={24} color="#fff" />
                           </TouchableOpacity>
                           <TouchableOpacity onPress={handleSaveEditKey} className="px-4 py-2 rounded-lg bg-green-500">
-                            <Check size={18} color="#fff" />
+                            <Check size={24} color="#fff" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -289,26 +290,22 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
                   </Modal>
 
                   <View className="mb-6">
-                    <Text className="text-lg font-semibold mb-2 text-white">
-                      Assistant Settings
-                    </Text>
+                    <Text className="text-lg font-semibold mb-2 text-text">Assistant Settings</Text>
                     <View>
-                      <Text className="text-base mb-1 text-zinc-300">
-                        Custom System Prompt
-                      </Text>
-                      <View className="rounded-lg overflow-hidden bg-zinc-700">
+                      <Text className="text-base mb-1 text-text/80">Custom System Prompt</Text>
+                      <View className="rounded-lg overflow-hidden bg-accent">
                         <TextInput
                           value={formState.customPrompt}
                           onChangeText={(value) => handleInputChange('customPrompt', value)}
                           placeholder="Optional: Define assistant's behavior"
-                          placeholderTextColor="#666"
+                          placeholderTextColor="#181818"
                           multiline
                           numberOfLines={4}
-                          className="px-4 py-3 text-base text-white"
+                          className="px-4 py-3 text-base text-text"
                           style={{ textAlignVertical: 'top' }}
                         />
                       </View>
-                      <Text className="text-sm mt-1 text-zinc-400">
+                      <Text className="text-sm mt-1 text-text/60">
                         This prompt guides the assistant's responses. Leave empty for default behavior.
                       </Text>
                     </View>
@@ -316,23 +313,22 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
 
                   {uiState.showPasswordInput && (
                     <View className="mb-6">
-                      <Text className="text-lg font-semibold mb-2 text-white">
-                        Confirm Changes
-                      </Text>
-                      <View className="flex-row items-center rounded-lg overflow-hidden bg-zinc-700">
+                      <Text className="text-lg font-semibold mb-2 text-text">Confirm Changes</Text>
+                      <View className="flex-row items-center rounded-lg overflow-hidden bg-accent">
                         <TextInput
                           value={formState.password}
                           onChangeText={(value) => handleInputChange('password', value)}
                           placeholder="Enter your password"
-                          placeholderTextColor="#666"
+                          placeholderTextColor="#181818"
                           secureTextEntry={!uiState.showPassword}
-                          className="flex-1 px-4 py-3 text-base text-white"
+                          className="flex-1 px-4 py-3 text-base text-text"
                         />
                         <TouchableOpacity
                           onPress={() => setUiState(prev => ({ ...prev, showPassword: !prev.showPassword }))}
                           className="px-4"
+                          accessibilityLabel="Show/hide password"
                         >
-                          <Text className="text-xs text-blue-400">
+                          <Text className="text-xs text-primary">
                             {uiState.showPassword ? 'Hide' : 'Show'}
                           </Text>
                         </TouchableOpacity>
@@ -346,10 +342,11 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
                   <TouchableOpacity
                     onPress={handleSaveSettings}
                     disabled={uiState.isSaving}
-                    className={`flex-row items-center justify-center py-3 px-4 rounded-lg bg-blue-600 ${uiState.isSaving ? 'opacity-50' : ''}`}
+                    className={`flex-row items-center justify-center py-3 px-4 rounded-lg bg-accent ${uiState.isSaving ? 'opacity-50' : ''}`}
+                    accessibilityLabel="Save settings"
                   >
-                    <Save size={20} color="#fff" />
-                    <Text className="text-white font-semibold ml-2">
+                    <Save size={20} color="#181818" />
+                    <Text className="text-primary font-semibold ml-2">
                       {uiState.isSaving ? 'Saving...' : 'Save Changes'}
                     </Text>
                   </TouchableOpacity>
@@ -357,12 +354,8 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
               )}
 
               <View className="mt-6">
-                <Text className="text-lg font-semibold mb-1 text-white">
-                  About ChatLLM
-                </Text>
-                <Text className="text-sm text-zinc-400">
-                  Version 1.0.0
-                </Text>
+                <Text className="text-lg font-semibold mb-1 text-text">About ChatLLM</Text>
+                <Text className="text-sm text-text/60">Version 1.0.0</Text>
               </View>
             </ScrollView>
           </View>
