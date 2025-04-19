@@ -7,6 +7,8 @@ buildscript {
         compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '35')
         targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
         kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.25'
+        // Define AGP version consistent with error message and Gradle version
+        agpVersion = findProperty('android.agpVersion') ?: '8.6.0' 
 
         ndkVersion = "26.1.10909125"
     }
@@ -15,9 +17,11 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath('com.android.tools.build:gradle')
+        // Explicitly set AGP version
+        classpath("com.android.tools.build:gradle:$agpVersion") 
         classpath('com.facebook.react:react-native-gradle-plugin')
-        classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+        // Explicitly set Kotlin plugin version using the variable
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion") 
     }
 }
 
