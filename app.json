@@ -25,14 +25,6 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      [
-        "expo-font",
-        {
-          "fonts": [
-            "./assets/fonts/Poppins-Regular.ttf"
-          ]
-        }
-      ],
       "expo-secure-store",
       "expo-sqlite"
     ],
