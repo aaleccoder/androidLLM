@@ -38,6 +38,17 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "1702c6a6-58c3-4a3c-bec8-0709fd066ffe"
+      }
+    },
+    "android": {
+      "package": "com.daerlaysdev.androidLLM"
     }
   }
 }

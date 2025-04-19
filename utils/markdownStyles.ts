@@ -25,14 +25,14 @@ export const markdownStyles = (role: 'user' | 'assistant') => {
       color: textColor,
       fontSize: 14,
       lineHeight: 22,
-      fontFamily: 'System',
+      fontFamily: 'Poppins',
     },
     paragraph: {
       color: textColor,
       marginVertical: 8,
       fontSize: 14,
       lineHeight: 22,
-      fontFamily: 'System',
+      fontFamily: 'Poppins',
     },
     heading1: {
       color: textColor,
@@ -41,7 +41,7 @@ export const markdownStyles = (role: 'user' | 'assistant') => {
       marginBottom: 10,
       marginTop: 18,
       lineHeight: 26,
-      fontFamily: 'System',
+      fontFamily: 'Poppins-Bold',
     },
     heading2: {
       color: textColor,
@@ -50,7 +50,7 @@ export const markdownStyles = (role: 'user' | 'assistant') => {
       marginTop: 14,
       marginBottom: 8,
       lineHeight: 24,
-      fontFamily: 'System',
+      fontFamily: 'Poppins-Bold',
     },
     code_block: {
       backgroundColor: codeBg,
@@ -89,14 +89,14 @@ export const markdownStyles = (role: 'user' | 'assistant') => {
       fontSize: 14,
       marginVertical: 4,
       lineHeight: 22,
-      fontFamily: 'System',
+      fontFamily: 'Poppins',
     },
     ordered_list_item: {
       color: textColor,
       fontSize: 14,
       marginVertical: 4,
       lineHeight: 22,
-      fontFamily: 'System',
+      fontFamily: 'Poppins',
     },
     strong: {
       fontWeight: 'bold' as const,

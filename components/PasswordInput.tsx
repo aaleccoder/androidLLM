@@ -23,9 +23,10 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
       onChangeText={setPassword}
       autoFocus={autoFocus}
       className={`
-        text-base px-4 py-3
+        text-base font-sans px-4 py-3
         bg-background text-text
-      rounded-md border-accent`}
+        rounded-md border-accent
+      `}
       placeholderTextColor='#666'
       selectionColor='#EBE9FC'
     />

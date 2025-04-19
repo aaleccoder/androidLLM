@@ -15,11 +15,14 @@
     "preset": "jest-expo"
   },
   "dependencies": {
+    "@expo-google-fonts/geist": "^0.3.0",
+    "@expo-google-fonts/poppins": "^0.3.0",
     "@google/generative-ai": "^0.24.0",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.0.14",
     "axios": "^1.8.4",
     "expo": "~52.0.43",
+    "expo-clipboard": "~7.0.1",
     "expo-crypto": "~14.0.2",
     "expo-font": "~13.0.4",
     "expo-haptics": "~14.0.1",
@@ -44,8 +47,7 @@
     "react-native-web": "~0.19.13",
     "reflect-metadata": "^0.2.2",
     "tailwindcss": "^3.4.17",
-    "typeorm": "^0.3.22",
-    "expo-clipboard": "~7.0.1"
+    "typeorm": "^0.3.22"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

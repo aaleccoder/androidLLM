@@ -4,7 +4,12 @@ import { DataProvider } from '../context/dataContext';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
 import { View } from 'react-native';
 import { SafeAreaView } from "react-native";
-import { useFonts } from "expo-font";
+import { 
+  useFonts,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_700Bold
+} from '@expo-google-fonts/poppins';
 import * as SplashScreen from "expo-splash-screen";
 import { TitleBar } from '../components/TitleBar';
 import { Settings } from '../components/Settings';
@@ -13,9 +18,27 @@ import { globalEventEmitter } from "@/utils/event";
 import { migrateToSqlite } from "@/utils/migrateToSqlite";
 import * as FileSystem from 'expo-file-system';
 
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
+
 function AppContent() {
   const [showSettings, setShowSettings] = useState(false);
   const auth = useAuth();
+
+  const [fontsLoaded] = useFonts({
+    'Poppins': Poppins_400Regular,
+    'Poppins-Medium': Poppins_500Medium,
+    'Poppins-Bold': Poppins_700Bold,
+  });
+
+  useEffect(() => {
+    const prepare = async () => {
+      if (fontsLoaded) {
+        await SplashScreen.hideAsync();
+      }
+    };
+    prepare();
+  }, [fontsLoaded]);
 
   useEffect(() => {
     const checkAndMigrate = async () => {
@@ -51,8 +74,12 @@ function AppContent() {
     };
   }, []);
 
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1 }} className="font-sans">
       <SafeAreaView style={{ flex: 1 }}>
         <Stack
           screenOptions={{

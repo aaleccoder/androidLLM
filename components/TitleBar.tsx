@@ -47,7 +47,7 @@ export function TitleBar({
                 style={{ minWidth: 120, justifyContent: 'center' }}
               >
                 <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: connectionStatus === 'connected' ? '#61BA82' : connectionStatus === 'error' ? '#ef4444' : '#fbbf24' }} />
-                <Text className="flex-1 text-xs font-medium text-text text-center">
+                <Text className="flex-1 text-xs font-medium text-text text-center font-sans">
                   {currentModel.displayName}
                 </Text>
                 <ChevronDown size={18} color="#EBE9FC" className="ml-2" />
@@ -57,7 +57,7 @@ export function TitleBar({
 
           {/* Center section: title */}
           <View className="absolute inset-0 items-center justify-center flex-row pointer-events-none">
-            <Text className="text-xl font-semibold tracking-tight text-text text-center" style={{width: 200}} numberOfLines={1} ellipsizeMode="tail">ChatLLM</Text>
+            <Text className="text-xl text-text text-center font-sans" style={{width: 200}} numberOfLines={1} ellipsizeMode="tail">ChatLLM</Text>
           </View>
 
           {/* Right section: three-dots menu */}
@@ -91,7 +91,7 @@ export function TitleBar({
                         accessibilityLabel="Open settings"
                       >
                         <Settings size={22} color="#61BA82" style={{ marginRight: 14 }} />
-                        <Text className="text-text text-lg font-medium text-center">Settings</Text>
+                        <Text className="text-text text-lg font-medium text-center font-sans">Settings</Text>
                       </TouchableOpacity>
                     )}
                     {showMenuButton && (
@@ -101,7 +101,7 @@ export function TitleBar({
                         accessibilityLabel="Log out"
                       >
                         <DoorOpen size={22} color="#61BA82" style={{ marginRight: 14 }} />
-                        <Text className="text-text text-lg font-medium text-center">Log Out</Text>
+                        <Text className="text-text text-lg font-medium text-center font-sans">Log Out</Text>
                       </TouchableOpacity>
                     )}
                   </Pressable>

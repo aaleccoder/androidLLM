@@ -43,6 +43,7 @@ export const ChatSidebar = ({
   const [searchFocused, setSearchFocused] = useState<boolean>(false);
   const [shouldRenderSidebar, setShouldRenderSidebar] = useState<boolean>(isVisible);
   const [menuThreadId, setMenuThreadId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
   const translateX = useRef(new Animated.Value(-300)).current;
   const sidebarWidth = useRef(new Animated.Value(320)).current;
@@ -199,6 +200,13 @@ export const ChatSidebar = ({
     ? [...data.chatThreads].sort((a, b) => b.updatedAt - a.updatedAt)
     : [];
 
+  const handlePressMenu = (threadId: string, event: any) => {
+    event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+      setMenuPosition({ x: pageX, y: pageY });
+      setMenuThreadId(threadId);
+    });
+  };
+
   const filteredThreads = chatThreads.filter(thread => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -266,7 +274,7 @@ export const ChatSidebar = ({
                       onChangeText={setSearchQuery}
                       placeholder="Search chats..."
                       placeholderTextColor="#181818"
-                      className="flex-1 text-text px-2 py-2"
+                      className="flex-1 text-text font-sans px-2 py-2"
                       style={{ fontSize: 16 }}
                       accessibilityLabel="Search chats"
                       autoCorrect={false}
@@ -288,12 +296,12 @@ export const ChatSidebar = ({
                   </TouchableOpacity>
                 </View>
                 {/* Chats label */}
-                <Text className="text-lg font-semibold text-text mt-2 mb-2" accessibilityRole="header">Chats</Text>
+                <Text className="text-lg font-medium text-text mt-2 mb-2" accessibilityRole="header">Chats</Text>
               </View>
               <View className="flex-1 px-2 pb-4">
                 {filteredThreads.length === 0 ? (
                   <View className="flex-1 justify-center items-center p-2">
-                    <Text className="text-center text-text opacity-60">No chat history yet. Start a new conversation!</Text>
+                    <Text className="text-center text-text font-sans opacity-60">No chat history yet. Start a new conversation!</Text>
                   </View>
                 ) : (
                   <FlatList
@@ -328,14 +336,14 @@ export const ChatSidebar = ({
                                 onChangeText={setRenameValue}
                                 onBlur={() => confirmRename(thread)}
                                 onSubmitEditing={() => confirmRename(thread)}
-                                className="text-xs font-medium text-text"
+                                className="text-xs font-medium font-sans text-text"
                                 autoFocus
                                 maxLength={40}
                                 style={{ padding: 0, margin: 0, height: 18, fontSize: 12 }}
                               />
                             ) : (
                               <Text 
-                                className={`text-xs font-semibold mb-0 ${isSelected ? 'text-accent' : 'text-text'}`} 
+                                className={`text-xs font-medium mb-0 ${isSelected ? 'text-accent' : 'text-text'}`} 
                                 numberOfLines={1}
                                 style={{ fontSize: 12 }}
                               >
@@ -346,7 +354,7 @@ export const ChatSidebar = ({
                           <TouchableOpacity
                             onPress={e => {
                               e.stopPropagation();
-                              setMenuThreadId(thread.id);
+                              handlePressMenu(thread.id, e);
                             }}
                             className="p-1 ml-1"
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -359,17 +367,40 @@ export const ChatSidebar = ({
                               transparent
                               visible={menuThreadId === thread.id}
                               animationType="fade"
-                              onRequestClose={() => setMenuThreadId(null)}
+                              onRequestClose={() => {
+                                setMenuThreadId(null);
+                                setMenuPosition(null);
+                              }}
                             >
                               <TouchableOpacity
                                 style={{ flex: 1 }}
-                                onPress={() => setMenuThreadId(null)}
+                                onPress={() => {
+                                  setMenuThreadId(null);
+                                  setMenuPosition(null);
+                                }}
                                 activeOpacity={1}
                               >
-                                <View style={{ position: 'absolute', right: 24, top: 24, backgroundColor: '#222', borderRadius: 8, padding: 8, minWidth: 120, zIndex: 100 }}>
+                                <View 
+                                  style={{ 
+                                    position: 'absolute',
+                                    left: menuPosition ? menuPosition.x - 100 : 0, // Position to the left of the dots
+                                    top: menuPosition ? menuPosition.y : 0,
+                                    backgroundColor: '#222',
+                                    borderRadius: 8,
+                                    padding: 8,
+                                    minWidth: 120,
+                                    zIndex: 100,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.25,
+                                    shadowRadius: 4,
+                                    elevation: 5,
+                                  }}
+                                >
                                   <TouchableOpacity
                                     onPress={() => {
                                       setMenuThreadId(null);
+                                      setMenuPosition(null);
                                       confirmDeleteThread(thread.id);
                                     }}
                                     className="flex-row items-center p-2"
@@ -377,7 +408,6 @@ export const ChatSidebar = ({
                                     <Trash size={16} color="#EF4444" />
                                     <Text className="ml-2 text-red-500 text-sm">Delete</Text>
                                   </TouchableOpacity>
-                                  {/* Add more menu items here if needed */}
                                 </View>
                               </TouchableOpacity>
                             </RNModal>

@@ -499,14 +499,14 @@ See https://openrouter.ai/models for available models.`,
 
   return (
     <ProtectedRoute>
-      <View className="flex-1 bg-background border-b border-zinc-800">
+      <View className="flex-1 bg-background border-b border-zinc-800 font-sans">
         <StatusBar style="light"/>
         <View className="flex-1">
           {/* Model Picker Modal Button & Modal (now above messages, under TitleBar) */}
-          <View className="px-4 pb-2">
+          <View className="px-4 pb-2 space-y-4">
             <TouchableOpacity
               onPress={() => setShowModelMenu(true)}
-              className="flex-row items-center justify-center px-3 py-2 rounded-lg bg-background"
+              className="flex-row items-center justify-center px-3 py-2 rounded-lg bg-primary"
               accessibilityLabel="Open model picker"
               style={{ minHeight: 40 }}
             >

@@ -213,4 +213,15 @@ export class DatabaseService {
             });
         }
     }
+
+    /**
+     * Deletes all data from all tables in the database
+     */
+    async deleteAllData(): Promise<void> {
+        // Delete in order to respect foreign key constraints
+        await this.messageRepository.clear();
+        await this.chatThreadRepository.clear();
+        await this.apiKeyRepository.clear();
+        await this.settingsRepository.clear();
+    }
 }

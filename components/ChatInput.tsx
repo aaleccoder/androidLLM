@@ -260,7 +260,7 @@ const ChatInput = ({
           <View className={`flex-row items-center space-x-2 w-full ${!isExpanded ? 'h-full justify-center' : ''}`}>
             <TextInput
               ref={inputRef}
-              className="flex-1 text-base text-text bg-transparent border-0 rounded-2xl px-3 py-2"
+              className="flex-1 text-base text-text font-sans bg-transparent border-0 rounded-2xl px-3 py-2"
               placeholder={`Message ${currentModel.provider === 'gemini' ? 'Gemini' : 'OpenRouter'}...`}
               placeholderTextColor="#a3a3a3"
               value={isExpanded ? expandedInput : input}

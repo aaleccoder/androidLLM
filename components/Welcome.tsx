@@ -10,7 +10,7 @@ export function Welcome() {
       <Text className="text-2xl font-bold text-center mb-2 text-text">
         Welcome to ChatLLM
       </Text>
-      <Text className="text-base text-center max-w-[300px] text-text opacity-70">
+      <Text className="text-base font-sans text-center max-w-[300px] text-text opacity-70">
         Start a conversation with Gemini and explore the power of AI
       </Text>
     </View>

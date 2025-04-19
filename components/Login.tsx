@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Text } from 'react-native';
 import { Shield, AlertTriangle, UserPlus, LogIn } from 'lucide-react-native';
 import { DeleteConfirmation } from './DeleteConfirmation';
+import { DatabaseService } from '@/database/DatabaseService';
 
 export function Login() {
   const router = useRouter();
@@ -39,7 +40,8 @@ export function Login() {
 
   const handleDelete = async () => {
     try {
-      await deleteAllData();
+      const dbService = new DatabaseService();
+      await dbService.deleteAllData();
       setShowDeleteConfirm(false);
       setError('');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -55,26 +57,26 @@ export function Login() {
       style={{ flex: 1 }}
     >
       <StatusBar style="light" />
-      <View className="flex-1 justify-center items-center px-8 py-12 bg-primary">
-        <View className="w-full max-w-md rounded-3xl overflow-hidden elevation-5 bg-background">
-          <View className="px-10 py-12 w-full">
-            {/* Logo & App Title Section */}
-            <View className="items-center mb-12">
-              <View className="rounded-full p-7 mb-6 bg-primary">
-                <Shield size={48} color="#EBE9FC" />
+      <View className="flex-1 justify-center items-center px-4 py-8 bg-primary">
+        <View className="w-full max-w-md bg-background rounded-3xl overflow-hidden shadow-2xl">
+          <View className="px-8 py-10">
+            {/* Logo & Title Section */}
+            <View className="items-center mb-10">
+              <View className="rounded-full p-6 mb-6 bg-accent shadow-lg">
+                <Shield size={40} color="#ffffff" strokeWidth={2.5} />
               </View>
-              <Text className="text-3xl font-bold mb-3 text-text">
+              <Text className="text-3xl font-bold mb-2 text-text">
                 ChatLLM
               </Text>
-              <Text className="text-base text-center opacity-80 text-text">
+              <Text className="text-sm text-center text-text/70">
                 {isNewUser ? 'Create your secure password' : 'Welcome back'}
               </Text>
             </View>
 
             {/* Form Section */}
-            <View>
-              <View className="mb-6">
-                <View className="rounded-xl overflow-hidden mb-4 bg-background border-accent border">
+            <View className="space-y-4">
+              <View className="space-y-3">
+                <View className="rounded-2xl overflow-hidden bg-background border border-accent/20">
                   <PasswordInput
                     placeholder="Password"
                     password={password}
@@ -84,7 +86,7 @@ export function Login() {
                 </View>
                 
                 {isNewUser && (
-                  <View className="rounded-xl overflow-hidden bg-background">
+                  <View className="rounded-2xl overflow-hidden bg-background border border-accent/20">
                     <PasswordInput
                       placeholder="Confirm Password"
                       password={confirmPassword}
@@ -97,35 +99,38 @@ export function Login() {
 
               {/* Error Message */}
               {error && (
-                <View className="flex-row items-center px-2 py-2 mb-4">
-                  <AlertTriangle size={18} color="#ef4444" />
-                  <Text className="text-red-500 ml-2 text-sm">
+                <View className="flex-row items-center px-2 py-2">
+                  <AlertTriangle size={16} color="#ef4444" />
+                  <Text className="text-red-500 ml-2 text-xs">
                     {error}
                   </Text>
                 </View>
               )}
 
               {/* Action Buttons */}
-              <View className="mt-6">
+              <View className="space-y-8 mt-6">
                 <TouchableOpacity
-                  className="flex-row items-center justify-center py-3 rounded-3xl mb-4 bg-accent"
+                  className="flex-row items-center justify-center py-3.5 rounded-2xl bg-accent shadow-lg mb-5"
                   onPress={handleSubmit}
                 >
-                  {isNewUser ? <UserPlus size={24} color="#EBE9FC" /> : <LogIn size={24} color="#EBE9FC" />}
-                  <Text className="text-text font-bold ml-2">
+                  {isNewUser ? 
+                    <UserPlus size={20} color="#ffffff" strokeWidth={2.5} /> : 
+                    <LogIn size={20} color="#ffffff" strokeWidth={2.5} />
+                  }
+                  <Text className="text-white font-bold ml-2">
                     {isNewUser ? 'Create Password' : 'Login'}
                   </Text>
                 </TouchableOpacity>
                 
                 {!isNewUser && (
                   <TouchableOpacity
-                    className="flex-row items-center justify-center py-3 rounded-3xl border border-red-400"
+                    className="flex-row items-center justify-center py-3.5 rounded-2xl border border-red-400/30"
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setShowDeleteConfirm(true);
                     }}
                   >
-                    <Text className="text-red-400">
+                    <Text className="text-red-400 text-sm">
                       Reset All Data
                     </Text>
                   </TouchableOpacity>
