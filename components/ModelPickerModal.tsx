@@ -1,6 +1,7 @@
-import React, { Dispatch, SetStateAction } from 'react';
-import { Modal, Pressable, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import React, { Dispatch, SetStateAction, useState } from 'react';
+import { Modal, Pressable, View, Text, TextInput, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
 import { Zap, Search, X } from 'lucide-react-native';
+import { openRouterService, OpenRouterModel } from '../services/openRouterService';
 
 type ModelOption = {
   id: string;
@@ -17,11 +18,8 @@ type ModelPickerModalProps = {
   onModelChange: (model: ModelOption) => void;
   currentModel: ModelOption;
   connectionStatus: 'connected' | 'error' | 'unknown';
-  showAddModel: boolean;
-  setShowAddModel: Dispatch<SetStateAction<boolean>>;
-  newModelName: string;
-  setNewModelName: Dispatch<SetStateAction<string>>;
-  handleAddOpenRouterModel: () => void;
+  handleAddOpenRouterModel: (model: ModelOption) => void;
+  openRouterModels: ModelOption[];
 };
 
 const getModelDisplayName = (model: ModelOption) => {
@@ -37,12 +35,57 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({
   onModelChange,
   currentModel,
   connectionStatus,
-  showAddModel,
-  setShowAddModel,
-  newModelName,
-  setNewModelName,
   handleAddOpenRouterModel,
+  openRouterModels,
 }) => {
+  // --- OpenRouter models modal state ---
+  const [isModelsModalOpen, setIsModelsModalOpen] = useState(false);
+  const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
+  const [isModelsLoading, setIsModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelSearch, setModelSearch] = useState<string>('');
+
+  // Fetch models from OpenRouter
+  const handleShowModels = async () => {
+    setIsModelsModalOpen(true);
+    setIsModelsLoading(true);
+    setModelsError(null);
+    try {
+      const models = await openRouterService.fetchAvailableModels();
+      setAvailableModels(models);
+    } catch (err: any) {
+      setModelsError(err.message || 'Failed to fetch models. Please check your connection or API key.');
+    } finally {
+      setIsModelsLoading(false);
+    }
+  };
+
+  // Add and switch to OpenRouter model
+  const handleAddAndSwitchModel = (model: OpenRouterModel) => {
+    const modelOption: ModelOption = {
+      id: model.id,
+      displayName: model.name,
+      provider: 'openrouter'
+    };
+    handleAddOpenRouterModel(modelOption);
+    setIsModelsModalOpen(false);
+    setModelSearch('');
+  };
+
+  const filteredModelsAvailable = availableModels.filter((model) => {
+    const search = modelSearch.trim().toLowerCase();
+    if (!search) return true;
+    return (
+      model.name.toLowerCase().includes(search) ||
+      model.id.toLowerCase().includes(search) ||
+      model.description.toLowerCase().includes(search)
+    );
+  });
+
+  const isModelAdded = (modelId: string) => {
+    return openRouterModels.some(m => m.id === modelId);
+  };
+
   return (
     <Modal
       visible={visible}
@@ -87,12 +130,12 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({
               ))}
 
               <TouchableOpacity
-                onPress={() => setShowAddModel(true)}
-                className={`flex-row items-center space-x-2 p-3 rounded-lg border border-accent bg-primary my-2`}
+                onPress={handleShowModels}
+                className={`flex-row items-center space-x-2 p-3 rounded-3xl bg-accent`}
               >
-                <Zap size={16} color="#61BA82" />
-                <Text className={`text-base text-accent`}>
-                  + Add OpenRouter Model
+                <Zap size={16} color="#181818" />
+                <Text className={`text-base text-primary`}>
+                  Browse All OpenRouter Models
                 </Text>
               </TouchableOpacity>
 
@@ -107,37 +150,70 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({
           </View>
         </View>
       </Pressable>
+
+      {/* Browse All OpenRouter Models Modal */}
       <Modal
-        visible={showAddModel}
+        visible={isModelsModalOpen}
+        animationType="slide"
         transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowAddModel(false)}
+        onRequestClose={() => setIsModelsModalOpen(false)}
       >
-        <View className="flex-1 justify-center items-center bg-black/50">
-          <View className={`w-[90%] rounded-2xl p-5 bg-primary`}>
-            <Text className={`text-lg font-bold mb-3 text-text`}>Add OpenRouter Model</Text>
-            <TextInput
-              value={newModelName}
-              onChangeText={setNewModelName}
-              placeholder="Enter model name (e.g. mistral-7b)"
-              placeholderTextColor='#666'
-              className={`px-4 py-3 text-base rounded-lg bg-background text-text`}
-              autoFocus
-            />
-            <View className="flex-row justify-end space-x-3 mt-4">
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="rounded-t-2xl p-4 max-h-[80%] bg-zinc-900">
+            <View className="flex-row items-center mb-2">
+              <Text className="text-xl font-bold flex-1 text-white">Available OpenRouter Models</Text>
               <TouchableOpacity
-                onPress={() => setShowAddModel(false)}
-                className={`px-4 py-2 rounded-lg bg-background`}
+                onPress={() => { setIsModelsModalOpen(false); setModelSearch(''); }}
+                className="p-2 ml-2"
+                accessibilityLabel="Close models list"
               >
-                <Text className='text-text'>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleAddOpenRouterModel}
-                className="px-4 py-2 rounded-lg bg-accent"
-              >
-                <Text className="text-text">Add</Text>
+                <Text className="text-lg font-bold text-white">×</Text>
               </TouchableOpacity>
             </View>
+            
+            <TextInput
+              value={modelSearch}
+              onChangeText={setModelSearch}
+              placeholder="Search models by name, id, or description..."
+              placeholderTextColor="#a1a1aa"
+              className="mb-3 px-3 py-2 rounded-lg border bg-zinc-800 border-zinc-700 text-white"
+              autoFocus
+              accessibilityLabel="Search models"
+              returnKeyType="search"
+            />
+            
+            {isModelsLoading ? (
+              <ActivityIndicator size="large" color="#22c55e" className="mt-8" />
+            ) : modelsError ? (
+              <Text className="text-red-500 mt-4">{modelsError}</Text>
+            ) : filteredModelsAvailable.length === 0 ? (
+              <Text className="text-center mt-8 text-zinc-400">No models found.</Text>
+            ) : (
+              <FlatList
+                data={filteredModelsAvailable}
+                keyExtractor={item => item.id}
+                style={{ marginTop: 8 }}
+                renderItem={({ item }) => (
+                  <View className="mb-4 p-3 rounded-lg bg-zinc-800">
+                    <Text className="font-semibold text-base text-white">{item.name}</Text>
+                    <Text className="text-xs mb-1 text-zinc-400">{item.id}</Text>
+                    <Text className="text-sm mb-1 text-zinc-300">{item.description}</Text>
+                    <Text className="text-xs text-zinc-400">Context: {item.context_length} tokens</Text>
+                    <Text className="text-xs text-zinc-400">Prompt: ${item.pricing.prompt} | Completion: ${item.pricing.completion}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleAddAndSwitchModel(item)}
+                      className={`mt-2 px-3 py-1 rounded bg-blue-600 ${isModelAdded(item.id) ? 'opacity-60' : ''}`}
+                      disabled={isModelAdded(item.id)}
+                      accessibilityLabel={`Add and switch to model ${item.name}`}
+                    >
+                      <Text className="text-white text-center text-sm font-semibold">
+                        {isModelAdded(item.id) ? 'Added' : 'Add & Switch'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            )}
           </View>
         </View>
       </Modal>

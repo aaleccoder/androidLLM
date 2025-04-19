@@ -5,7 +5,8 @@ import { useAuth } from '../hooks/useAuth';
 import * as Haptics from 'expo-haptics';
 
 // Import Lucide icons
-import { Plus, X, Trash, Search, SquarePen } from "lucide-react-native";
+import { Plus, X, Trash, Search, SquarePen, MoreVertical, MoreHorizontal } from "lucide-react-native";
+import { Modal as RNModal } from 'react-native';
 
 interface ChatSidebarProps {
   isVisible: boolean;
@@ -41,6 +42,7 @@ export const ChatSidebar = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchFocused, setSearchFocused] = useState<boolean>(false);
   const [shouldRenderSidebar, setShouldRenderSidebar] = useState<boolean>(isVisible);
+  const [menuThreadId, setMenuThreadId] = useState<string | null>(null);
 
   const translateX = useRef(new Animated.Value(-300)).current;
   const sidebarWidth = useRef(new Animated.Value(320)).current;
@@ -236,7 +238,7 @@ export const ChatSidebar = ({
         className={className}
       >
         {/* SafeAreaView to keep sidebar within screen bounds */}
-        <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent', height: '100%' }}>
           {/* Inner Animated.View for width (JS driver) */}
           <Animated.View style={{ width: sidebarWidth, flex: 1, height: '100%' }}>
             <View className="flex-1 bg-primary">
@@ -303,44 +305,83 @@ export const ChatSidebar = ({
                       return (
                         <Pressable
                           onPress={() => handleSelectThread(thread.id)}
+                          onLongPress={() => !isRenaming && startRenaming(thread)}
                           disabled={isRenaming}
+                          className={`flex-row items-center p-1 mb-0.5 rounded-lg active:opacity-80 ${
+                            isSelected ? 'bg-accent/20 border-l-4 border-accent' : 'bg-background hover:bg-background/80'
+                          }`}
+                          style={{ 
+                            maxHeight: 50,
+                            elevation: isSelected ? 2 : 0,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: isSelected ? 0.2 : 0,
+                            shadowRadius: 2,
+                            marginTop: 4,
+                            padding: 8,
+                          }}
                         >
-                          <View
-                            className={`flex-row items-center p-2 mb-1 rounded-lg transition-all duration-150 ${isSelected ? 'bg-accent/20 border-l-4 border-accent' : 'bg-background'}`}
-                            style={{ minHeight: 48 }}
-                          >
-                            <View className="flex-1">
-                              {isRenaming ? (
-                                <TextInput
-                                  value={renameValue}
-                                  onChangeText={setRenameValue}
-                                  onBlur={() => confirmRename(thread)}
-                                  onSubmitEditing={() => confirmRename(thread)}
-                                  className="text-sm font-medium text-text"
-                                  autoFocus
-                                  maxLength={40}
-                                  style={{ padding: 0, margin: 0 }}
-                                />
-                              ) : (
-                                <TouchableOpacity onLongPress={() => startRenaming(thread)}>
-                                  <Text className={`text-sm font-medium ${isSelected ? 'text-accent' : 'text-text'}`} numberOfLines={1}>
-                                    {thread.title}
-                                  </Text>
-                                </TouchableOpacity>
-                              )}
-                              <Text className="text-xs mt-0.5 text-text opacity-60" numberOfLines={1}>
-                                {getLastMessagePreview(thread) || 'No messages yet'}
+                          <View className="flex-1 pr-1">
+                            {isRenaming ? (
+                              <TextInput
+                                value={renameValue}
+                                onChangeText={setRenameValue}
+                                onBlur={() => confirmRename(thread)}
+                                onSubmitEditing={() => confirmRename(thread)}
+                                className="text-xs font-medium text-text"
+                                autoFocus
+                                maxLength={40}
+                                style={{ padding: 0, margin: 0, height: 18, fontSize: 12 }}
+                              />
+                            ) : (
+                              <Text 
+                                className={`text-xs font-semibold mb-0 ${isSelected ? 'text-accent' : 'text-text'}`} 
+                                numberOfLines={1}
+                                style={{ fontSize: 12 }}
+                              >
+                                {thread.title || getLastMessagePreview(thread) || 'No messages yet'}
                               </Text>
-                            </View>
-                            <View className="items-end ml-2">
-                              <Text className="text-xs text-text opacity-40">{formatDate(thread.updatedAt)}</Text>
-                              {enableEditing && !isRenaming && (
-                                <TouchableOpacity onPress={() => confirmDeleteThread(thread.id)} className="p-1 rounded-lg mt-1">
-                                  <Trash size={14} color="#EBE9FC" />
-                                </TouchableOpacity>
-                              )}
-                            </View>
+                            )}
                           </View>
+                          <TouchableOpacity
+                            onPress={e => {
+                              e.stopPropagation();
+                              setMenuThreadId(thread.id);
+                            }}
+                            className="p-1 ml-1"
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <MoreHorizontal size={18} color="#888" />
+                          </TouchableOpacity>
+                          {/* Dropdown menu for actions */}
+                          {menuThreadId === thread.id && (
+                            <RNModal
+                              transparent
+                              visible={menuThreadId === thread.id}
+                              animationType="fade"
+                              onRequestClose={() => setMenuThreadId(null)}
+                            >
+                              <TouchableOpacity
+                                style={{ flex: 1 }}
+                                onPress={() => setMenuThreadId(null)}
+                                activeOpacity={1}
+                              >
+                                <View style={{ position: 'absolute', right: 24, top: 24, backgroundColor: '#222', borderRadius: 8, padding: 8, minWidth: 120, zIndex: 100 }}>
+                                  <TouchableOpacity
+                                    onPress={() => {
+                                      setMenuThreadId(null);
+                                      confirmDeleteThread(thread.id);
+                                    }}
+                                    className="flex-row items-center p-2"
+                                  >
+                                    <Trash size={16} color="#EF4444" />
+                                    <Text className="ml-2 text-red-500 text-sm">Delete</Text>
+                                  </TouchableOpacity>
+                                  {/* Add more menu items here if needed */}
+                                </View>
+                              </TouchableOpacity>
+                            </RNModal>
+                          )}
                         </Pressable>
                       );
                     }}

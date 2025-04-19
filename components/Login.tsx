@@ -29,7 +29,7 @@ export function Login() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const success = await validateAndSavePassword(password, isNewUser ? confirmPassword : undefined);
       if (success) {
-        router.push('/ui/chat');
+        router.replace('/ui/chat');
       }
     } catch (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

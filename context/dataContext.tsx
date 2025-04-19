@@ -64,8 +64,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (!loadedData.openRouterModels) {
         loadedData.openRouterModels = [];
       }
-      
+      // Ensure apiKeys is always present and typed
+      if (!loadedData.apiKeys || typeof loadedData.apiKeys !== 'object') {
+        loadedData.apiKeys = { gemini: '', openRouter: '' };
+      } else {
+        if (typeof loadedData.apiKeys.gemini !== 'string') loadedData.apiKeys.gemini = '';
+        if (typeof loadedData.apiKeys.openRouter !== 'string') loadedData.apiKeys.openRouter = '';
+      }
+      // Ensure settings exists
+      if (!loadedData.settings || typeof loadedData.settings !== 'object') {
+        loadedData.settings = {};
+      }
       setData(loadedData as AppData);
+      console.log('[dataContext] Loaded data:', loadedData);
     } catch (error) {
       console.error('Error loading data:', error);
       throw error;
@@ -73,9 +84,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveData = async (newData: AppData, password: string) => {
+    if (!password || typeof password !== 'string' || password.length === 0) {
+      const errMsg = '[dataContext] No password provided to saveData. Aborting save.';
+      console.error(errMsg);
+      throw new Error(errMsg);
+    }
     try {
-      await writeFile(newData, password);
+      // Ensure apiKeys is always present and typed before saving
+      if (!newData.apiKeys || typeof newData.apiKeys !== 'object') {
+        newData.apiKeys = { gemini: '', openRouter: '' };
+      } else {
+        if (typeof newData.apiKeys.gemini !== 'string') newData.apiKeys.gemini = '';
+        if (typeof newData.apiKeys.openRouter !== 'string') newData.apiKeys.openRouter = '';
+      }
+      if (!newData.settings || typeof newData.settings !== 'object') {
+        newData.settings = {};
+      }
+      console.log('[dataContext] Calling writeFile to persist data...');
+      const writeResult = await writeFile(newData, password, true);
+      if (!writeResult) {
+        const errMsg = '[dataContext] writeFile failed to save data.';
+        console.error(errMsg);
+        throw new Error(errMsg);
+      }
       setData(newData);
+      console.log('[dataContext] Saved data successfully:', newData);
     } catch (error) {
       console.error('Error saving data:', error);
       throw error;

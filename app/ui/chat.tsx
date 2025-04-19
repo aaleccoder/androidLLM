@@ -62,7 +62,7 @@ export default function Chat() {
   const [sidebarMounted, setSidebarMounted] = useState<boolean>(false); // NEW
   const [currentThreadId, setCurrentThreadId] = useState<string | undefined>(data?.activeThreadId);
   const [editingEnabled, setEditingEnabled] = useState<boolean>(false);
-  const [openRouterModels, setOpenRouterModels] = useState<string[]>([]);
+  const [openRouterModels, setOpenRouterModels] = useState<ModelOption[]>([]); // Changed from string[] to ModelOption[]
   const [currentModel, setCurrentModel] = useState<ModelOption>(GEMINI_MODELS[1]); // Default Gemini 1.5 Pro
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
 
@@ -77,11 +77,7 @@ export default function Chat() {
   const [showModelMenu, setShowModelMenu] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   // Combine Gemini and OpenRouter models
-  const openRouterModelOptions: ModelOption[] = openRouterModels.map(m => ({
-    id: m,
-    displayName: m,
-    provider: 'openrouter'
-  }));
+  const openRouterModelOptions = openRouterModels;  // No mapping needed since we store ModelOptions directly
   const ALL_MODELS: ModelOption[] = [...GEMINI_MODELS, ...openRouterModelOptions];
   const fuse = new Fuse(ALL_MODELS, {
     keys: ['displayName'],
@@ -130,67 +126,58 @@ export default function Chat() {
   const handleModelChange = async (model: ModelOption) => {
     if (model.provider === 'gemini') {
       await geminiService.changeModel(model.id as any);
+      setCurrentModel(model);
+      await handleNewChat();
     } else {
+      // Ensure the selected OpenRouter model is registered in openRouterModels and dataContext
+      if (!openRouterModels.some(m => m.id === model.id)) {
+        await handleAddOpenRouterModel(model);
+        await handleNewChat();
+        return;
+      }
       openRouterService.setCustomModel(model.id);
-    }
-    setCurrentModel(model);
-    await handleNewChat();
-  };
-
-  const handleShowModels = async () => {
-    setIsModelsModalOpen(true);
-    setIsModelsLoading(true);
-    setModelsError(null);
-    try {
-      const models = await openRouterService.fetchAvailableModels();
-      setAvailableModels(models);
-    } catch (err) {
-      setModelsError('Failed to fetch models. Please check your connection or API key.');
-    } finally {
-      setIsModelsLoading(false);
+      setCurrentModel(model);
+      await handleNewChat();
     }
   };
 
   useEffect(() => {
     // Load OpenRouter models from app data
     if (data?.openRouterModels) {
-      setOpenRouterModels(data.openRouterModels);
+      const modelOptions: ModelOption[] = data.openRouterModels.map(id => ({
+        id,
+        displayName: id,
+        provider: 'openrouter'
+      }));
+      setOpenRouterModels(modelOptions);
     }
   }, [data]);
 
-  const addOpenRouterModel = (modelName: string) => {
-    setOpenRouterModels(prev => {
-      if (prev.includes(modelName)) return prev;
-      const updated = [...prev, modelName];
-      // Persist to app data
-      if (data) {
-        const password = getCurrentPassword();
-        if (password) {
-          saveData({ ...data, openRouterModels: updated }, password);
+  // Add OpenRouter model and persist, returns a Promise that resolves after state and dataContext update
+  const handleAddOpenRouterModel = async (model: ModelOption): Promise<void> => {
+    return new Promise<void>(async (resolve) => {
+      setOpenRouterModels(prev => {
+        if (prev.some(m => m.id === model.id)) {
+          resolve();
+          return prev;
         }
-      }
-      return updated;
+        const updated = [...prev, model];
+        // Persist to app data
+        if (data) {
+          const password = getCurrentPassword();
+          if (password) {
+            saveData({ ...data, openRouterModels: updated.map(m => m.id) }, password).then(() => resolve());
+          } else {
+            resolve();
+          }
+        } else {
+          resolve();
+        }
+        return updated;
+      });
+      setCurrentModel(model);
     });
-    setCurrentModel({ id: modelName, displayName: modelName, provider: 'openrouter' });
   };
-
-  const handleAddAndSwitchModel = (model: OpenRouterModel) => {
-    addOpenRouterModel(model.id);
-    setCurrentModel({ id: model.id, displayName: model.name, provider: 'openrouter' });
-    setIsModelsModalOpen(false);
-    setModelSearch('');
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const filteredModelsAvailable = availableModels.filter((model) => {
-    const search = modelSearch.trim().toLowerCase();
-    if (!search) return true;
-    return (
-      model.name.toLowerCase().includes(search) ||
-      model.id.toLowerCase().includes(search) ||
-      model.description.toLowerCase().includes(search)
-    );
-  });
 
   useEffect(() => {
     if (data?.apiKeys?.gemini) {
@@ -371,7 +358,7 @@ export default function Chat() {
 
   const handleSend = async (message: string, model: ModelOption) => {
     console.log('[Chat] handleSend called with:', { message, model });
-    if (model.provider === 'openrouter' && !openRouterModels.includes(model.id)) {
+    if (model.provider === 'openrouter' && !openRouterModels.some(m => m.id === model.id)) {
       setMessages(prev => [
         ...prev,
         { isUser: true, text: message, timestamp: Date.now() },
@@ -515,17 +502,6 @@ See https://openrouter.ai/models for available models.`,
       <View className="flex-1 bg-background border-b border-zinc-800">
         <StatusBar style="light"/>
         <View className="flex-1">
-          {/* Button to check OpenRouter models */}
-          {/* <View className="px-4 pt-2 pb-1">
-            <TouchableOpacity
-              onPress={handleShowModels}
-              className="rounded-lg px-4 py-2 bg-blue-600"
-              accessibilityLabel="Check available OpenRouter models"
-            >
-              <Text className="text-white text-center font-semibold">Check OpenRouter Models</Text>
-            </TouchableOpacity>
-          </View> */}
-
           {/* Model Picker Modal Button & Modal (now above messages, under TitleBar) */}
           <View className="px-4 pb-2">
             <TouchableOpacity
@@ -551,33 +527,32 @@ See https://openrouter.ai/models for available models.`,
             onModelChange={handleModelChangeUnified}
             currentModel={currentModel}
             connectionStatus={connectionStatus}
-            showAddModel={false}
-            setShowAddModel={() => {}}
-            newModelName={''}
-            setNewModelName={() => {}}
-            handleAddOpenRouterModel={() => {}}
+            handleAddOpenRouterModel={handleAddOpenRouterModel}
+            openRouterModels={openRouterModels}
           />
 
-          {showWelcome ? (
-            <Welcome />
-          ) : (
-            <ScrollView
-              ref={scrollViewRef}
-              className="flex-1"
-              contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-            >
-              {messages.map((message, index) => (
-                <ChatMessage 
-                  key={index}
-                  content={message.text}
-                  role={message.isUser ? 'user' : 'assistant'}
-                  isLast={index === messages.length - 1}
-                  isGenerating={message.isStreaming}
-                />
-              ))}
-            </ScrollView>
-          )}
-          
+          <View style={{ flex: 1 }}>
+            {showWelcome ? (
+              <Welcome />
+            ) : (
+              <ScrollView
+                ref={scrollViewRef}
+                className="flex-1"
+                contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+              >
+                {messages.map((message, index) => (
+                  <ChatMessage 
+                    key={index}
+                    content={message.text}
+                    role={message.isUser ? 'user' : 'assistant'}
+                    isLast={index === messages.length - 1}
+                    isGenerating={message.isStreaming}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </View>
+
           <ChatInput 
             onSend={handleSend}
             isGenerating={isGenerating}
@@ -585,7 +560,7 @@ See https://openrouter.ai/models for available models.`,
             currentModel={currentModel}
             onModelChange={handleModelChangeUnified}
             openRouterModels={openRouterModels}
-            addOpenRouterModel={addOpenRouterModel}
+            addOpenRouterModel={handleAddOpenRouterModel}
             showModelMenu={showModelMenu}
             setShowModelMenu={setShowModelMenu}
             searchQuery={searchQuery}
@@ -593,7 +568,6 @@ See https://openrouter.ai/models for available models.`,
             filteredModels={filteredModels}
             connectionStatus={connectionStatus}
           />
-          
           {(showSidebar || sidebarMounted) && (
             <ChatSidebar
               isVisible={showSidebar}
@@ -606,71 +580,6 @@ See https://openrouter.ai/models for available models.`,
               enableEditing={true}
             />
           )}
-
-          {/* Models Modal */}
-          <Modal
-            visible={isModelsModalOpen}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setIsModelsModalOpen(false)}
-          >
-            <View className="flex-1 justify-end bg-black/50">
-              <View className="rounded-t-2xl p-4 max-h-[80%] bg-zinc-900">  
-                <View className="flex-row items-center mb-2">
-                  <Text className="text-xl font-bold flex-1 text-white">Available OpenRouter Models</Text>
-                  <TouchableOpacity
-                    onPress={() => { setIsModelsModalOpen(false); setModelSearch(''); }}
-                    className="p-2 ml-2"
-                    accessibilityLabel="Close models list"
-                  >
-                    <Text className="text-lg font-bold">×</Text>
-                  </TouchableOpacity>
-                </View>
-                <TextInput
-                  value={modelSearch}
-                  onChangeText={setModelSearch}
-                  placeholder="Search models by name, id, or description..."
-                  placeholderTextColor="#a1a1aa" // zinc-400
-                  className="mb-3 px-3 py-2 rounded-lg border bg-zinc-800 border-zinc-700 text-white placeholder-zinc-400"
-                  autoFocus
-                  accessibilityLabel="Search models"
-                  returnKeyType="search"
-                />
-                {isModelsLoading ? (
-                  <ActivityIndicator size="large" color="#22c55e" className="mt-8" />
-                ) : modelsError ? (
-                  <Text className="text-red-500 mt-4">{modelsError}</Text>
-                ) : filteredModelsAvailable.length === 0 ? (
-                  <Text className="text-center mt-8 text-zinc-400">No models found.</Text>
-                ) : (
-                  <FlatList
-                    data={filteredModelsAvailable}
-                    keyExtractor={item => item.id}
-                    style={{ marginTop: 8 }}
-                    renderItem={({ item }) => (
-                      <View className="mb-4 p-3 rounded-lg bg-zinc-800"> 
-                        <Text className="font-semibold text-base text-white">{item.name}</Text>
-                        <Text className="text-xs mb-1 text-zinc-400">{item.id}</Text>
-                        <Text className="text-sm mb-1 text-zinc-300">{item.description}</Text>
-                        <Text className="text-xs text-zinc-400">Context: {item.context_length} tokens</Text>
-                        <Text className="text-xs text-zinc-400">Prompt: ${item.pricing.prompt} | Completion: ${item.pricing.completion}</Text>
-                        <TouchableOpacity
-                          onPress={() => handleAddAndSwitchModel(item)}
-                          className={`mt-2 px-3 py-1 rounded bg-blue-600 ${openRouterModels.includes(item.id) ? 'opacity-60' : ''}`}
-                          disabled={openRouterModels.includes(item.id)}
-                          accessibilityLabel={`Add and switch to model ${item.name}`}
-                        >
-                          <Text className="text-white text-center text-sm font-semibold">
-                            {openRouterModels.includes(item.id) ? 'Added' : 'Add & Switch'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  />
-                )}
-              </View>
-            </View>
-          </Modal>
         </View>
       </View>
     </ProtectedRoute>

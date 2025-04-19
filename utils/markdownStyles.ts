@@ -2,102 +2,116 @@ import { StyleSheet } from "react-native";
 
 /**
  * Creates markdown styles for chat messages based on theme and role
- * @param isDarkMode - Whether dark mode is enabled
  * @param role - The role of the message sender (user or assistant)
  */
 export const markdownStyles = (role: 'user' | 'assistant') => {
-  // Common styles for all elements
-  const baseTextColor = {
-    user: "#FFFFFF", // User messages always have white text
-    assistant: "#FFFFFF" // Assistant messages: white in dark mode, dark in light mode
+  // Color palette from tailwind.config.js
+  const palette = {
+    text: '#EBE9FC',
+    userText: '#181818',
+    background: '#1E1E1E',
+    primary: '#181818',
+    accent: '#61BA82',
   };
 
-  // Background colors for code blocks and inline code
-  const codeBackgroundColor = {
-    user: "rgba(0, 0, 0, 0.25)",
-    assistant: "rgba(0, 0, 0, 0.25)"
-  };
+  // Role-based accent for links/code
+  const accentColor = palette.accent;
+  const textColor = role === 'user' ? palette.userText : palette.text;
+  const codeBg = palette.background;
 
-  // Link colors
-  const linkColor = {
-    user: "#B5FCCD", // Accent color for user messages
-    assistant: "#3A59D1" // Primary blue for assistant messages
-  };
-
-  // Base styles for text elements with smaller fonts
-  const baseStyles = (textColor: any) => ({
+  // Base styles for text elements
+  const baseStyles = {
     body: {
       color: textColor,
-      fontSize: 11,
-      lineHeight: 16,
+      fontSize: 14,
+      lineHeight: 22,
+      fontFamily: 'System',
     },
     paragraph: {
       color: textColor,
-      marginVertical: 6,
-      fontSize: 11,
-      lineHeight: 16,
+      marginVertical: 8,
+      fontSize: 14,
+      lineHeight: 22,
+      fontFamily: 'System',
     },
     heading1: {
       color: textColor,
-      fontWeight: "bold" as const,
-      fontSize: 11,
-      marginBottom: 6,
-      marginTop: 10,
+      fontWeight: 'bold' as const,
+      fontSize: 18,
+      marginBottom: 10,
+      marginTop: 18,
+      lineHeight: 26,
+      fontFamily: 'System',
     },
     heading2: {
       color: textColor,
-      fontWeight: "bold" as const,
-      fontSize: 11,
-      marginTop: 8,
-      marginBottom: 4,
+      fontWeight: 'bold' as const,
+      fontSize: 16,
+      marginTop: 14,
+      marginBottom: 8,
+      lineHeight: 24,
+      fontFamily: 'System',
     },
     code_block: {
-      backgroundColor: role === 'user' ? codeBackgroundColor.user : codeBackgroundColor.assistant,
-      padding: 8,
-      borderRadius: 6,
-      fontFamily: "monospace",
-      fontSize: 10,
-      color: textColor,
-      marginVertical: 6,
+      backgroundColor: codeBg,
+      padding: 12,
+      borderRadius: 8,
+      fontFamily: 'monospace',
+      fontSize: 13,
+      color: textColor, // Use role-based text color for code blocks
+      marginVertical: 10,
+    },
+    fence: {
+      backgroundColor: codeBg,
+      padding: 12,
+      borderRadius: 8,
+      fontFamily: 'monospace',
+      fontSize: 13,
+      color: textColor, // Use role-based text color for code blocks
+      marginVertical: 10,
     },
     code_inline: {
-      backgroundColor: role === 'user' ? codeBackgroundColor.user : codeBackgroundColor.assistant,
-      padding: 2,
-      borderRadius: 3,
-      fontFamily: "monospace",
-      fontSize: 10,
-      color: textColor,
+      backgroundColor: codeBg,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      fontFamily: 'monospace',
+      fontSize: 13,
+      color: accentColor,
     },
     link: {
-      color: role === 'user' ? linkColor.user : linkColor.assistant,
-      textDecorationLine: "underline" as const,
-      fontSize: 11,
+      color: accentColor,
+      textDecorationLine: 'underline' as const,
+      fontSize: 14,
     },
     bullet_list_item: {
       color: textColor,
-      fontSize: 11,
-      marginVertical: 2,
+      fontSize: 14,
+      marginVertical: 4,
+      lineHeight: 22,
+      fontFamily: 'System',
     },
     ordered_list_item: {
       color: textColor,
-      fontSize: 11,
-      marginVertical: 2,
+      fontSize: 14,
+      marginVertical: 4,
+      lineHeight: 22,
+      fontFamily: 'System',
     },
     strong: {
-      fontWeight: "bold" as const,
+      fontWeight: 'bold' as const,
       color: textColor,
-      fontSize: 11,
+      fontSize: 14,
     },
     em: {
-      fontStyle: "italic" as const,
+      fontStyle: 'italic' as const,
       color: textColor,
-      fontSize: 11,
+      fontSize: 14,
     },
-  });
+  };
 
-  // Create styles for user and assistant
-  const userStyles = StyleSheet.create(baseStyles(baseTextColor.user));
-  const assistantStyles = StyleSheet.create(baseStyles(baseTextColor.assistant));
-
-  return { user: userStyles, assistant: assistantStyles };
+  return {
+    user: StyleSheet.create(baseStyles),
+    assistant: StyleSheet.create(baseStyles),
+  };
 };

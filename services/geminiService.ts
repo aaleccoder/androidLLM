@@ -196,30 +196,38 @@ export class GeminiService {
    */
   async sendMessage(message: string, onPartialResponse?: (text: string) => void): Promise<string> {
     if (this.requestInProgress) {
-      return 'A request is already in progress. Please wait for the current response to finish.';
+      const msg = '⏳ A request is already in progress. Please wait for the current response to finish.';
+      console.warn('[Gemini] ' + msg);
+      return msg;
     }
     this.isCancelled = false;
     this.requestInProgress = true;
 
     if (!this.model) {
+      const msg = '❗ API key not set. Please add your Gemini API key in Settings.';
+      console.error('[Gemini] ' + msg);
       this.requestInProgress = false;
-      return 'API key not set. Please set your Gemini API key in the settings.';
+      return msg;
     }
 
     if (!this.chatSession) {
       try {
         await this.initializeChat();
       } catch (error) {
+        const msg = "❗ Couldn't initialize chat session. Please check your API key in Settings.";
+        console.error('[Gemini] ' + msg, error);
         this.requestInProgress = false;
-        return "Couldn't initialize chat session. Please check your API key in settings.";
+        return msg;
       }
     }
 
     try {
       this.contextManager.addMessage('user', message);
       if (!this.chatSession) {
+        const msg = '❗ Chat session not initialized.';
+        console.error('[Gemini] ' + msg);
         this.requestInProgress = false;
-        throw new Error('Chat session not initialized');
+        return msg;
       }
 
       // Try true streaming if available
@@ -294,13 +302,29 @@ export class GeminiService {
         this.contextManager.addMessage('model', stoppedResponse);
         this.requestInProgress = false;
         return stoppedResponse;
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.code === 'ECONNABORTED' || error?.message?.includes('Network')) {
+          const msg = '❗ Network error. Please check your internet connection.';
+          console.error('[Gemini] ' + msg, error);
+          this.requestInProgress = false;
+          return msg;
+        }
+        const msg = "❗ I'm sorry, I encountered an error processing your request. Please try again.";
+        console.error('[Gemini] ' + msg, error);
         this.requestInProgress = false;
-        return "I'm sorry, I encountered an error processing your request. Please try again.";
+        return msg;
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === 'ECONNABORTED' || error?.message?.includes('Network')) {
+        const msg = '❗ Network error. Please check your internet connection.';
+        console.error('[Gemini] ' + msg, error);
+        this.requestInProgress = false;
+        return msg;
+      }
+      const msg = "❗ I'm sorry, I encountered an error processing your request. Please try again.";
+      console.error('[Gemini] ' + msg, error);
       this.requestInProgress = false;
-      return "I'm sorry, I encountered an error processing your request. Please try again.";
+      return msg;
     }
   }
   

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Keyboard, TextInput, View, Animated, Easing, TouchableOpacity, Pressable, StyleSheet, ViewStyle, LayoutChangeEvent, Platform } from 'react-native';
+import { Keyboard, TextInput, View, Animated, Easing, TouchableOpacity, Pressable, StyleSheet, ViewStyle, LayoutChangeEvent, Platform, NativeSyntheticEvent, TextInputSelectionChangeEventData } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Send, Bold, Italic, Code, Heading, List, ListOrdered, Link2, X, Image as ImageIcon, ChevronsUpDown } from 'lucide-react-native';
 import Markdown from 'react-native-markdown-display';
@@ -24,8 +24,8 @@ interface ChatInputProps {
   onStopGeneration?: () => void;
   currentModel: ModelOption;
   onModelChange: (model: ModelOption) => void;
-  openRouterModels: string[];
-  addOpenRouterModel: (modelName: string) => void;
+  openRouterModels: ModelOption[];  // Changed from string[] to ModelOption[]
+  addOpenRouterModel: (modelName: ModelOption) => void;  // Changed parameter type to ModelOption
   className?: string;
   style?: ViewStyle | ViewStyle[];
   showModelMenu: boolean;
@@ -46,6 +46,12 @@ const ChatInput = ({
   addOpenRouterModel,
   className,
   style,
+  showModelMenu,
+  setShowModelMenu,
+  searchQuery,
+  setSearchQuery,
+  filteredModels,
+  connectionStatus,
 }: ChatInputProps) => {
   const [input, setInput] = useState<string>("");
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -57,6 +63,9 @@ const ChatInput = ({
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
   const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   const [editing, setEditing] = useState<boolean>(false);
+
+  // Track current height in a ref to avoid using private Animated.Value API
+  const currentHeight = useRef(80);
 
   // Keyboard event listeners for toolbar placement
   useEffect(() => {
@@ -74,21 +83,39 @@ const ChatInput = ({
 
   // Animate expand/collapse
   useEffect(() => {
-    Animated.timing(animatedHeight, {
-      toValue: isExpanded ? 260 : 120,
-      duration: 320,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-    Animated.timing(animatedToolbarOpacity, {
-      toValue: isExpanded ? 1 : 0,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
     if (isExpanded) {
+      // Only animate to expanded if not already at a larger height
+      const toValue = Math.max(currentHeight.current, 120);
+      Animated.timing(animatedHeight, {
+        toValue,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start(() => {
+        currentHeight.current = toValue;
+      });
+      Animated.timing(animatedToolbarOpacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
       setExpandedInput(input);
       setTimeout(() => inputRef.current?.focus(), 100);
     } else {
+      // Only animate to collapsed if not already at a smaller height
+      Animated.timing(animatedHeight, {
+        toValue: 120,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start(() => {
+        currentHeight.current = 120;
+      });
+      Animated.timing(animatedToolbarOpacity, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
       setInput(expandedInput);
       Keyboard.dismiss();
     }
@@ -200,28 +227,37 @@ const ChatInput = ({
   const onContentSizeChange = (e: any) => {
     if (isExpanded) {
       const h = Math.min(Math.max(e.nativeEvent.contentSize.height, 120), 260);
-      animatedHeight.setValue(h);
+      // Only set height if it changed, and don't override collapse
+      if (currentHeight.current !== h && h > 120) {
+        animatedHeight.setValue(h);
+        currentHeight.current = h;
+      }
     }
   };
 
-  const showInput = editing || (isExpanded && (expandedInput.length === 0 && input.length === 0));
-
   return (
-    <View style={{ width: '100%', position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 10 }}>
-      <Animated.View
-        className="bg-primary px-4 pt-4 pb-2 rounded-t-3xl flex-col justify-between"
-        style={{
-          height: animatedHeight,
-          minHeight: 80,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -12 },
-          shadowOpacity: 0.38,
-          shadowRadius: 32,
-          elevation: 24,
-        }}
-      >
-        <View className={`flex-row items-center space-x-2 w-full ${!isExpanded ? 'h-full justify-center' : ''}`}>
-          {showInput ? (
+    <View style={{ width: '100%' }}>
+      <View style={{ flex: 1 }}>
+        {/* This View is for the chat messages area, parent should control flex layout */}
+        {/* ...existing code for chat messages goes here... */}
+      </View>
+      <View style={{ height: 10 }}>
+        {/* Reduced margin between chats and input */}
+      </View>
+      <View style={{ width: '100%' }}>
+        <Animated.View
+          className="bg-primary px-4 pt-4 pb-2 rounded-t-3xl flex-col justify-between"
+          style={{
+            height: animatedHeight,
+            minHeight: 80,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -12 },
+            shadowOpacity: 0.38,
+            shadowRadius: 32,
+            elevation: 24,
+          }}
+        >
+          <View className={`flex-row items-center space-x-2 w-full ${!isExpanded ? 'h-full justify-center' : ''}`}>
             <TextInput
               ref={inputRef}
               className="flex-1 text-base text-text bg-transparent border-0 rounded-2xl px-3 py-2"
@@ -243,77 +279,81 @@ const ChatInput = ({
               selection={selection}
               onSelectionChange={e => setSelection(e.nativeEvent.selection)}
             />
-          ) : (
-            <Pressable
-              className="flex-1 min-h-[40px] justify-center px-3 py-2"
-              onPress={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-              accessibilityLabel="Edit message"
-            >
-              <Markdown style={markdownStyles('user').user}>
-                {(isExpanded ? expandedInput : input) || '*Tap to edit*'}
-              </Markdown>
-            </Pressable>
-          )}
-          <TouchableOpacity
-            onPress={() => setIsExpanded((v) => !v)}
-            accessibilityLabel={isExpanded ? 'Collapse input' : 'Expand input'}
-            className="p-2"
-          >
-            <ChevronsUpDown size={22} color="#a3a3a3" />
-          </TouchableOpacity>
-        </View>
-        {/* Markdown live preview */}
-        {isExpanded && (isExpanded ? expandedInput : input).trim().length > 0 && (
-          <View className="mb-2 mt-2 px-3 py-2 bg-background/80 rounded-xl border border-primary/20">
-            <Markdown style={markdownStyles('user').user}>
-              {isExpanded ? expandedInput : input}
-            </Markdown>
-          </View>
-        )}
-        {/* Markdown toolbar and send button at the bottom of the chat input */}
-        {isExpanded && (
-          <Animated.View
-            className="flex-row items-center justify-between px-1 pt-2"
-            style={{ opacity: animatedToolbarOpacity }}
-            pointerEvents={isExpanded ? 'auto' : 'none'}
-          >
-            <View className="flex-row items-center">
-              <TouchableOpacity onPress={() => handleMarkdown('bold')} accessibilityLabel="Bold" style={{ marginRight: 24 }}>
-                <Bold size={22} color="#a3a3a3" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMarkdown('italic')} accessibilityLabel="Italic" style={{ marginRight: 24 }}>
-                <Italic size={22} color="#a3a3a3" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMarkdown('code')} accessibilityLabel="Code" style={{ marginRight: 24 }}>
-                <Code size={22} color="#a3a3a3" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMarkdown('heading')} accessibilityLabel="Heading" style={{ marginRight: 24 }}>
-                <Heading size={22} color="#a3a3a3" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMarkdown('ul')} accessibilityLabel="Unordered List" style={{ marginRight: 24 }}>
-                <List size={22} color="#a3a3a3" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMarkdown('ol')} accessibilityLabel="Ordered List" style={{ marginRight: 24 }}>
-                <ListOrdered size={22} color="#a3a3a3" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleMarkdown('link')} accessibilityLabel="Link">
-                <Link2 size={22} color="#a3a3a3" />
-              </TouchableOpacity>
-            </View>
             <TouchableOpacity
-              onPress={handleSend}
-              accessibilityLabel="Send"
-              className="ml-4 rounded-full bg-accent p-2"
-              style={{ shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, elevation: 6 }}
-              disabled={!hasInput}
+              onPress={() => setIsExpanded((v) => !v)}
+              accessibilityLabel={isExpanded ? 'Collapse input' : 'Expand input'}
+              className="p-2"
             >
-              <Send size={22} color="#fff" />
+              <ChevronsUpDown size={22} color="#a3a3a3" />
             </TouchableOpacity>
-          </Animated.View>
-        )}
-      </Animated.View>
+          </View>
+          {/* Markdown toolbar and send button at the bottom of the chat input */}
+          {isExpanded && (
+            <Animated.View
+              className="flex-row items-center justify-between px-1 pt-2"
+              style={{ opacity: animatedToolbarOpacity }}
+              pointerEvents={isExpanded ? 'auto' : 'none'}
+            >
+              <View className="flex-row items-center">
+                <TouchableOpacity onPress={() => handleMarkdown('bold')} accessibilityLabel="Bold" style={{ marginRight: 24 }}>
+                  <Bold size={22} color="#a3a3a3" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleMarkdown('italic')} accessibilityLabel="Italic" style={{ marginRight: 24 }}>
+                  <Italic size={22} color="#a3a3a3" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleMarkdown('code')} accessibilityLabel="Code" style={{ marginRight: 24 }}>
+                  <Code size={22} color="#a3a3a3" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleMarkdown('heading')} accessibilityLabel="Heading" style={{ marginRight: 24 }}>
+                  <Heading size={22} color="#a3a3a3" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleMarkdown('ul')} accessibilityLabel="Unordered List" style={{ marginRight: 24 }}>
+                  <List size={22} color="#a3a3a3" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleMarkdown('ol')} accessibilityLabel="Ordered List" style={{ marginRight: 24 }}>
+                  <ListOrdered size={22} color="#a3a3a3" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleMarkdown('link')} accessibilityLabel="Link">
+                  <Link2 size={22} color="#a3a3a3" />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                onPress={handleSend}
+                accessibilityLabel="Send"
+                className="ml-4 rounded-full bg-accent p-2"
+                style={{ shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, elevation: 6 }}
+                disabled={!hasInput}
+              >
+                <Send size={22} color="#fff" />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </Animated.View>
+      </View>
     </View>
   );
 };
+
+/**
+ * IMPORTANT: OpenRouter Integration Notes
+ * 
+ * This component is designed to work with both Gemini and OpenRouter models:
+ * 
+ * 1. Provider-specific handling: currentModel.provider tells the component which service to use
+ * 2. ModelOption format: All models (Gemini and OpenRouter) use the ModelOption type:
+ *    {
+ *      id: string;            // The model ID used by the API (e.g., "openai/gpt-4o")
+ *      displayName: string;   // User-friendly name (e.g., "GPT-4o")
+ *      provider: 'gemini' | 'openrouter';  // Which service this model belongs to
+ *    }
+ * 3. OpenRouter model conversion: When fetching models from OpenRouter, convert them:
+ *    openRouterModel => ({
+ *      id: openRouterModel.id,        
+ *      displayName: openRouterModel.name,  
+ *      provider: 'openrouter'
+ *    })
+ * 
+ * The onSend callback automatically uses the currently selected model.
+ */
 
 export default ChatInput;

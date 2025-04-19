@@ -1,4 +1,4 @@
-import { Menu, Settings, Sun, Moon, DoorOpen, Ellipsis, ChevronDown } from 'lucide-react-native'
+import { Menu, Settings, Sun, Moon, DoorOpen, Ellipsis, ChevronDown, Blinds } from 'lucide-react-native'
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth'
 import { SafeAreaView, Platform, StatusBar, View, Text, TouchableOpacity, Modal, Pressable } from 'react-native'
@@ -36,7 +36,7 @@ export function TitleBar({
                 className="p-2 rounded-lg bg-background"
                 onPress={() => globalEventEmitter.emit('toggleSidebar')}
               >
-                <Menu size={24} color="#61BA82" />
+                <Blinds size={24} color="#61BA82" />
               </TouchableOpacity>
             )}
             {currentModel && (

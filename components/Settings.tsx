@@ -58,6 +58,18 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
   const [editKeyValue, setEditKeyValue] = useState<string>('');
   const [editKeyMasked, setEditKeyMasked] = useState<boolean>(true);
 
+  // Always sync formState with context data when modal opens or data changes
+  useEffect(() => {
+    if (isVisible) {
+      setFormState({
+        geminiKey: data?.apiKeys?.gemini || '',
+        openRouterKey: data?.apiKeys?.openRouter || '',
+        customPrompt: data?.settings?.customPrompt || '',
+        password: '',
+      });
+    }
+  }, [isVisible, data]);
+
   const handleInputChange = useCallback((field: keyof FormState, value: string) => {
     setFormState(prev => ({ ...prev, [field]: value }));
   }, []);
@@ -113,42 +125,49 @@ export function Settings({ isVisible, onClose }: SettingsProps) {
       ...data,
       apiKeys: {
         gemini: formState.geminiKey.trim(),
-        openRouter: formState.openRouterKey.trim()
+        openRouter: formState.openRouterKey.trim(),
       },
       settings: {
         ...data?.settings,
-        customPrompt: formState.customPrompt.trim() || undefined
+        customPrompt: formState.customPrompt.trim() || undefined,
       },
-      chatThreads: data?.chatThreads || []
+      chatThreads: data?.chatThreads || [],
     };
 
     try {
       if (!formState.password) {
-        setUiState(prev => ({ 
-          ...prev, 
-          showPasswordInput: true, 
-          isSaving: false 
+        setUiState(prev => ({
+          ...prev,
+          showPasswordInput: true,
+          isSaving: false,
         }));
         return;
       }
-      
+
       await saveData(newData, formState.password);
       geminiService.setCustomPrompt(formState.customPrompt.trim() || undefined);
-      setUiState(prev => ({ 
-        ...prev, 
-        showPasswordInput: false, 
-        isSaving: false 
+      setUiState(prev => ({
+        ...prev,
+        showPasswordInput: false,
+        isSaving: false,
       }));
       setFormState(prev => ({ ...prev, password: '' }));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // After save, force formState to sync with latest context data
+      setFormState({
+        geminiKey: newData.apiKeys.gemini,
+        openRouterKey: newData.apiKeys.openRouter,
+        customPrompt: newData.settings?.customPrompt || '',
+        password: '',
+      });
       onClose();
     } catch (error) {
       console.error('Error saving settings:', error);
-      setUiState(prev => ({ 
+      setUiState(prev => ({
         ...prev,
         saveError: error instanceof Error ? error.message : 'Failed to save settings.',
         showPasswordInput: true,
-        isSaving: false
+        isSaving: false,
       }));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
