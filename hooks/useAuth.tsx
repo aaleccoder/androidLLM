@@ -16,6 +16,8 @@ import React from 'react';
 import { router, useRouter } from 'expo-router';
 import { useData } from '../context/dataContext';
 import { deleteFile } from '../utils/readJson';
+import { initializeDatabase, disconnectDatabase } from '../database/database.config';
+import { DatabaseService } from '../database/DatabaseService';
 
 // Create a module-level variable to store authentication state
 // This will persist only for the current app session
@@ -64,21 +66,25 @@ function useAuthHook() {
     const { loadData } = useData();
 
     useEffect(() => {
-        checkIfFileExists();
+        checkIfUserExists();
     }, []);
 
     /**
-     * Checks if the data file exists to determine if user is new
+     * Checks if the user data exists in either JSON or SQLite format
      * Updates isNewUser state accordingly
      */
-    const checkIfFileExists = async () => {
+    const checkIfUserExists = async () => {
         try {
-            const fileInfo = await FileSystem.getInfoAsync(
-                `${FileSystem.documentDirectory}data.json`
-            );
-            setIsNewUser(!fileInfo.exists);
+            // Check both JSON and SQLite existence
+            const jsonPath = `${FileSystem.documentDirectory}data.json`;
+            const sqlitePath = `${FileSystem.documentDirectory}SQLite/androidllm.db`;
+            
+            const jsonExists = (await FileSystem.getInfoAsync(jsonPath)).exists;
+            const sqliteExists = (await FileSystem.getInfoAsync(sqlitePath)).exists;
+            
+            setIsNewUser(!jsonExists && !sqliteExists);
         } catch (err) {
-            console.error('Error checking file:', err);
+            console.error('Error checking files:', err);
             setError('Error checking file status');
         }
     };
@@ -124,24 +130,15 @@ function useAuthHook() {
                 const hashedPassword = await hashPassword(password);
                 await SecureStore.setItemAsync('passwordHash', hashedPassword);
                 
-                const initialData = {
-                    apiKeys: {
-                        gemini: '',
-                        openRouter: ''
-                    },
-                    chatThreads: []
-                };
-                const encryptedData = await encryptData(JSON.stringify(initialData), password);
-                await FileSystem.writeAsStringAsync(
-                    `${FileSystem.documentDirectory}data.json`,
-                    encryptedData
-                );
+                // Initialize SQLite database
+                await initializeDatabase();
+                const dbService = new DatabaseService();
                 
                 // Set authenticated for this session
                 isAuthenticatedSession = true;
                 currentUserPassword = password;
                 setIsAuthenticated(true);
-                setIsNewUser(false); // <-- Fix: update isNewUser after registration
+                setIsNewUser(false);
                 return true;
             } else {
                 const storedHash = await SecureStore.getItemAsync('passwordHash');
@@ -175,16 +172,18 @@ function useAuthHook() {
      */
     const logout = async () => {
         try {
-            // Clear the authentication state first
+            // Disconnect database first
+            await disconnectDatabase();
+            
+            // Clear the authentication state
             isAuthenticatedSession = false;
             currentUserPassword = '';
             setIsAuthenticated(false);
-            await checkIfFileExists(); // <-- Fix: update isNewUser after logout
+            await checkIfUserExists();
             
-            // Add a small delay before navigation
             router.push("/");
         } catch (error) {
-            console.error("Navigation error during logout:", error);
+            console.error("Error during logout:", error);
         }
     };
 
@@ -196,14 +195,26 @@ function useAuthHook() {
      */
     const deleteAllData = async () => {
         try {
+            // Delete JSON file if it exists
             await deleteFile();
+            
+            // Delete SQLite database if it exists
+            const sqlitePath = `${FileSystem.documentDirectory}SQLite/androidllm.db`;
+            const sqliteExists = (await FileSystem.getInfoAsync(sqlitePath)).exists;
+            if (sqliteExists) {
+                await FileSystem.deleteAsync(sqlitePath);
+            }
+            
+            // Delete stored password
             await SecureStore.deleteItemAsync('passwordHash');
+            
+            // Reset authentication state
             isAuthenticatedSession = false;
             currentUserPassword = '';
             setIsAuthenticated(false);
-            await checkIfFileExists();
+            await checkIfUserExists();
         } catch (err) {
-            throw new Error('Failed to delete file');
+            throw new Error('Failed to delete data');
         }
     };
 

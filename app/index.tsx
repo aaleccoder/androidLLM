@@ -6,6 +6,8 @@
  */
 import { Login } from '../components/Login';
 
-export default function App() {
+const IndexPage = () => {
   return <Login />;
-}
+};
+
+export default IndexPage;

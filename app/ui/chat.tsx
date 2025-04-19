@@ -48,7 +48,7 @@ const GEMINI_MODELS: ModelOption[] = [
   { id: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', provider: 'gemini' },
 ];
 
-export default function Chat() {
+const ChatPage = () => {
   const { data, createChatThread, updateChatThread, setActiveThread, deleteChatThread, setActiveThreadInMemory, updateChatThreadInMemory, deleteChatThreadInMemory, saveData } = useData();
   const { getCurrentPassword } = useAuth();
 
@@ -584,4 +584,6 @@ See https://openrouter.ai/models for available models.`,
       </View>
     </ProtectedRoute>
   );
-}
+};
+
+export default ChatPage;

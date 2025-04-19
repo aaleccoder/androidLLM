@@ -4,6 +4,7 @@ import { Copy, Check } from 'lucide-react-native';
 import Markdown from 'react-native-markdown-display';
 import { markdownStyles } from '../utils/markdownStyles';
 import { tokenizeCode, Token, TokenType } from '../utils/simpleSyntaxHighlight';
+import * as Clipboard from 'expo-clipboard';
 
 interface ChatMessageProps {
   content: string;
@@ -29,11 +30,17 @@ const tokenColors: Record<TokenType, string> = {
 const CodeBlock = ({ code, language }: { code: string; language: string }) => {
   const [copied, setCopied] = useState(false);
   const tokens = tokenizeCode(code, language);
-  const handleCopy = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1000);
-    // TODO: Add clipboard copy logic if needed
+  
+  const handleCopy = async () => {
+    try {
+      await Clipboard.setStringAsync(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (error) {
+      console.error('Failed to copy code:', error);
+    }
   };
+
   return (
     <View style={{ backgroundColor: '#282c34', borderRadius: 8, padding: 12, marginVertical: 10 }}>
       <TouchableOpacity
@@ -46,7 +53,7 @@ const CodeBlock = ({ code, language }: { code: string; language: string }) => {
       </TouchableOpacity>
       <Text style={{ fontFamily: 'monospace', fontSize: 13, flexWrap: 'wrap', color: '#abb2bf' }}>
         {tokens.map((token, i) => (
-          <Text key={i} style={{ color: tokenColors[token.type] }}>
+          <Text key={`${i}-${token.type}-${token.text}`} style={{ color: tokenColors[token.type] }}>
             {token.text}
           </Text>
         ))}
@@ -71,27 +78,46 @@ const rules = {
 
 export const ChatMessage = ({ content, role, isLast = false, isGenerating = false }: ChatMessageProps) => {
   const isUser = role === 'user';
-  
-  // Get appropriate markdown styles based on role
+  const [copied, setCopied] = useState(false);
   const mdStyles = markdownStyles(role);
+
+  const handleCopy = async () => {
+    try {
+      await Clipboard.setStringAsync(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+    }
+  };
 
   return (
     <View className={`${isUser ? 'self-end ml-16' : 'self-start w-full'} mb-3`}>
       <View
         className={`
-          px-2.5 py-1.5 rounded-xl
+          px-2.5 py-1.5 rounded-xl relative
           ${isUser 
             ? 'bg-accent rounded-tr-sm rounded-br-sm shadow-sm shadow-accent/20 text-primary' 
             : 'bg-background rounded-lg shadow-sm shadow-black/20 border-l-3 border-l-accent text-text'
           }
         `}
       >
-        <Markdown
-          style={isUser ? mdStyles.user : mdStyles.assistant}
-          rules={rules}
+        <TouchableOpacity
+          onPress={handleCopy}
+          accessibilityLabel="Copy message"
+          style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, padding: 4 }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          {content}
-        </Markdown>
+          {copied ? <Check size={18} color="#98c379" /> : <Copy size={18} color="#abb2bf" />}
+        </TouchableOpacity>
+        <View style={{ paddingRight: 32 }}>
+          <Markdown
+            style={isUser ? mdStyles.user : mdStyles.assistant}
+            rules={rules}
+          >
+            {content}
+          </Markdown>
+        </View>
         
         {isLast && isGenerating && (
           <View

@@ -1,315 +1,290 @@
 import React, { createContext, useContext, useState } from 'react';
-import { loadFile, writeFile } from '../utils/readJson';
+import { DatabaseService, Message as DbMessage, ChatThread as DbChatThread, Settings } from '../database/init';
+import { initializeDatabase } from '../database/init';
 
-// Define types for chat history
+// Interface definitions for the app's data model
 export interface Message {
-  isUser: boolean;
-  text: string;
-  timestamp: number;
+    isUser: boolean;
+    text: string;
+    timestamp: number;
 }
 
 export interface ChatThread {
-  id: string;
-  title: string;
-  messages: Message[];
-  createdAt: number;
-  updatedAt: number;
-  model: {
     id: string;
-    displayName: string;
-    provider: string;
-  };
+    title: string;
+    messages: Message[];
+    createdAt: number;
+    updatedAt: number;
+    model: {
+        id: string;
+        displayName: string;
+        provider: string;
+    };
 }
 
 export interface AppData {
-  apiKeys: {
-    gemini: string;
-    openRouter: string;
-  };
-  chatThreads: ChatThread[];
-  openRouterModels?: string[];
-  activeThreadId?: string;
-  settings?: {
-    customPrompt?: string;
-  };
+    apiKeys: {
+        gemini: string;
+        openRouter: string;
+    };
+    chatThreads: ChatThread[];
+    openRouterModels?: string[];
+    activeThreadId?: string;
+    settings?: {
+        customPrompt?: string;
+    };
 }
 
 interface DataContextType {
-  data: AppData | null;
-  loadData: (password: string) => Promise<void>;
-  saveData: (newData: AppData, password: string) => Promise<void>;
-  createChatThread: (password: string, model: { id: string; displayName: string; provider: string }) => Promise<string>;
-  updateChatThread: (threadId: string, messages: Message[], password: string) => Promise<void>;
-  setActiveThread: (threadId: string, password: string) => Promise<void>;
-  deleteChatThread: (threadId: string, password: string) => Promise<void>;
-  // In-memory only functions
-  setActiveThreadInMemory: (threadId: string) => void;
-  updateChatThreadInMemory: (threadId: string, messages: Message[]) => void;
-  deleteChatThreadInMemory: (threadId: string) => void;
+    data: AppData | null;
+    loadData: (password: string) => Promise<void>;
+    saveData: (newData: AppData, password: string) => Promise<void>;
+    createChatThread: (password: string, model: { id: string; displayName: string; provider: string }) => Promise<string>;
+    updateChatThread: (threadId: string, messages: Message[], password: string) => Promise<void>;
+    setActiveThread: (threadId: string, password: string) => Promise<void>;
+    deleteChatThread: (threadId: string, password: string) => Promise<void>;
+    setActiveThreadInMemory: (threadId: string) => void;
+    updateChatThreadInMemory: (threadId: string, messages: Message[]) => void;
+    deleteChatThreadInMemory: (threadId: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<AppData | null>(null);
+    const [data, setData] = useState<AppData | null>(null);
+    const [dbService] = useState(() => new DatabaseService());
 
-  const loadData = async (password: string) => {
-    try {
-      const loadedData = await loadFile(password);
-      
-      // Migrate older data format if needed
-      if (!loadedData.chatThreads) {
-        loadedData.chatThreads = [];
-      }
-      if (!loadedData.openRouterModels) {
-        loadedData.openRouterModels = [];
-      }
-      // Ensure apiKeys is always present and typed
-      if (!loadedData.apiKeys || typeof loadedData.apiKeys !== 'object') {
-        loadedData.apiKeys = { gemini: '', openRouter: '' };
-      } else {
-        if (typeof loadedData.apiKeys.gemini !== 'string') loadedData.apiKeys.gemini = '';
-        if (typeof loadedData.apiKeys.openRouter !== 'string') loadedData.apiKeys.openRouter = '';
-      }
-      // Ensure settings exists
-      if (!loadedData.settings || typeof loadedData.settings !== 'object') {
-        loadedData.settings = {};
-      }
-      setData(loadedData as AppData);
-      console.log('[dataContext] Loaded data:', loadedData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      throw error;
-    }
-  };
+    const loadData = async (password: string) => {
+        try {
+            await initializeDatabase();
+            // Set password for database operations
+            dbService.setPassword(password);
+            
+            const threads = await dbService.getAllChatThreads();
+            const settings = await dbService.getSettings();
+            const geminiKey = await dbService.getApiKey('gemini', password);
+            const openRouterKey = await dbService.getApiKey('openRouter', password);
 
-  const saveData = async (newData: AppData, password: string) => {
-    if (!password || typeof password !== 'string' || password.length === 0) {
-      const errMsg = '[dataContext] No password provided to saveData. Aborting save.';
-      console.error(errMsg);
-      throw new Error(errMsg);
-    }
-    try {
-      // Ensure apiKeys is always present and typed before saving
-      if (!newData.apiKeys || typeof newData.apiKeys !== 'object') {
-        newData.apiKeys = { gemini: '', openRouter: '' };
-      } else {
-        if (typeof newData.apiKeys.gemini !== 'string') newData.apiKeys.gemini = '';
-        if (typeof newData.apiKeys.openRouter !== 'string') newData.apiKeys.openRouter = '';
-      }
-      if (!newData.settings || typeof newData.settings !== 'object') {
-        newData.settings = {};
-      }
-      console.log('[dataContext] Calling writeFile to persist data...');
-      const writeResult = await writeFile(newData, password, true);
-      if (!writeResult) {
-        const errMsg = '[dataContext] writeFile failed to save data.';
-        console.error(errMsg);
-        throw new Error(errMsg);
-      }
-      setData(newData);
-      console.log('[dataContext] Saved data successfully:', newData);
-    } catch (error) {
-      console.error('Error saving data:', error);
-      throw error;
-    }
-  };
+            const appData: AppData = {
+                chatThreads: threads.map(thread => ({
+                    id: thread.id,
+                    title: thread.title,
+                    messages: thread.messages.map(msg => ({
+                        isUser: msg.isUser,
+                        text: msg.text,
+                        timestamp: msg.timestamp
+                    })),
+                    createdAt: thread.createdAt.getTime(),
+                    updatedAt: thread.updatedAt.getTime(),
+                    model: {
+                        id: thread.modelId,
+                        displayName: thread.modelDisplayName,
+                        provider: thread.modelProvider
+                    }
+                })),
+                apiKeys: {
+                    gemini: geminiKey || '',
+                    openRouter: openRouterKey || ''
+                },
+                activeThreadId: threads.find(t => t.isActive)?.id,
+                openRouterModels: settings.openRouterModels ? JSON.parse(settings.openRouterModels) : [],
+                settings: {
+                    customPrompt: settings.customPrompt
+                }
+            };
 
-  /**
-   * Creates a new chat thread
-   */
-  const createChatThread = async (password: string, model: { id: string; displayName: string; provider: string }): Promise<string> => {
-    if (!data) throw new Error('No data loaded');
-    
-    const newThreadId = Date.now().toString();
-    const newThread: ChatThread = {
-      id: newThreadId,
-      title: 'New Chat',
-      messages: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      model
-    };
-    
-    const updatedData = {
-      ...data,
-      chatThreads: [...data.chatThreads, newThread],
-      activeThreadId: newThreadId
-    };
-    
-    await saveData(updatedData, password);
-    return newThreadId;
-  };
-
-  /**
-   * Updates a chat thread with new messages
-   */
-  const updateChatThread = async (threadId: string, messages: Message[], password: string) => {
-    if (!data) throw new Error('No data loaded');
-    
-    // Check if any actual changes exist before updating
-    const existingThread = data.chatThreads.find(thread => thread.id === threadId);
-    if (!existingThread) {
-      throw new Error('Thread not found');
-    }
-    
-    // Skip update if messages are the same
-    if (existingThread.messages.length === messages.length && 
-        JSON.stringify(existingThread.messages) === JSON.stringify(messages)) {
-      console.log('No changes in messages, skipping update');
-      return;
-    }
-    
-    const updatedThreads = data.chatThreads.map(thread => {
-      if (thread.id === threadId) {
-        // Update title based on first chat exchange
-        let title = thread.title;
-        if (title === 'New Chat' && messages.length >= 2) {
-          // Find first user message
-          const firstUserMessage = messages.find(m => m.isUser)?.text || '';
-          
-          // Extract a concise title from user's first message
-          title = firstUserMessage
-            .split('\n')[0] // Take first line
-            .replace(/^[#\s]+/, '') // Remove markdown headings and leading spaces
-            .substring(0, 50); // Limit length
-          
-          // Add ellipsis if truncated
-          if (firstUserMessage.length > 50) title += '...';
-          
-          // Fallback if title is too short
-          if (title.length < 10) {
-            // Try to extract context from AI's first response
-            const firstAIResponse = messages.find(m => !m.isUser)?.text || '';
-            const aiTitle = firstAIResponse
-              .split('\n')[0]
-              .replace(/^[#\s]+/, '')
-              .substring(0, 50);
-              
-            if (aiTitle.length > title.length) title = aiTitle;
-          }
+            setData(appData);
+            console.log('[dataContext] Loaded data from database');
+        } catch (error) {
+            console.error('Error loading data:', error);
+            throw error;
         }
+    };
+
+    const saveData = async (newData: AppData, password: string) => {
+        try {
+            // Save API keys
+            await dbService.setApiKey('gemini', newData.apiKeys.gemini, password);
+            await dbService.setApiKey('openRouter', newData.apiKeys.openRouter, password);
+
+            // Update settings
+            await dbService.updateSettings({
+                customPrompt: newData.settings?.customPrompt,
+                openRouterModels: JSON.stringify(newData.openRouterModels || [])
+            });
+
+            // Update active thread
+            if (data?.activeThreadId !== newData.activeThreadId) {
+                // Reset all active states
+                const threads = await dbService.getAllChatThreads();
+                for (const thread of threads) {
+                    if (thread.isActive) {
+                        await dbService.updateChatThread(thread.id, { isActive: false });
+                    }
+                }
+                // Set new active thread
+                if (newData.activeThreadId) {
+                    await dbService.updateChatThread(newData.activeThreadId, { isActive: true });
+                }
+            }
+
+            setData(newData);
+        } catch (error) {
+            console.error('Error saving data:', error);
+            throw error;
+        }
+    };
+
+    const createChatThread = async (password: string, model: { id: string; displayName: string; provider: string }): Promise<string> => {
+        const thread = await dbService.createChatThread('New Chat', model);
         
-        return {
-          ...thread,
-          title,
-          messages,
-          updatedAt: Date.now(),
-          model: thread.model // preserve model
+        // Update the in-memory state
+        const newThread: ChatThread = {
+            id: thread.id,
+            title: thread.title,
+            messages: [],
+            createdAt: thread.createdAt.getTime(),
+            updatedAt: thread.updatedAt.getTime(),
+            model: {
+                id: thread.modelId,
+                displayName: thread.modelDisplayName,
+                provider: thread.modelProvider
+            }
         };
-      }
-      return thread;
-    });
-    
-    const updatedData = {
-      ...data,
-      chatThreads: updatedThreads
+
+        setData(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                chatThreads: [...prev.chatThreads, newThread],
+                activeThreadId: thread.id
+            };
+        });
+
+        return thread.id;
     };
-    
-    await saveData(updatedData, password);
-  };
 
-  /**
-   * Sets the active thread
-   */
-  const setActiveThread = async (threadId: string, password: string) => {
-    if (!data) throw new Error('No data loaded');
-    
-    const updatedData = {
-      ...data,
-      activeThreadId: threadId
+    const updateChatThread = async (threadId: string, messages: Message[], password: string) => {
+        // Update messages in the database
+        const thread = await dbService.getChatThread(threadId);
+        if (!thread) throw new Error('Thread not found');
+
+        // Clear existing messages and add new ones
+        thread.messages = [];
+        for (const msg of messages) {
+            await dbService.addMessage(threadId, msg);
+        }
+
+        // Update the thread's title if it's a new chat
+        if (thread.title === 'New Chat' && messages.length >= 2) {
+            const firstUserMessage = messages.find(m => m.isUser)?.text || '';
+            let title = firstUserMessage
+                .split('\n')[0]
+                .replace(/^[#\s]+/, '')
+                .substring(0, 50);
+
+            if (firstUserMessage.length > 50) title += '...';
+
+            if (title.length < 10) {
+                const firstAIResponse = messages.find(m => !m.isUser)?.text || '';
+                const aiTitle = firstAIResponse
+                    .split('\n')[0]
+                    .replace(/^[#\s]+/, '')
+                    .substring(0, 50);
+
+                if (aiTitle.length > title.length) title = aiTitle;
+            }
+
+            await dbService.updateChatThread(threadId, { title });
+        }
+
+        // Update in-memory state
+        setData(prev => {
+            if (!prev) return prev;
+            const updatedThreads = prev.chatThreads.map(thread =>
+                thread.id === threadId ? { ...thread, messages } : thread
+            );
+            return { ...prev, chatThreads: updatedThreads };
+        });
     };
-    
-    await saveData(updatedData, password);
-  };
 
-  /**
-   * Deletes a chat thread
-   */
-  const deleteChatThread = async (threadId: string, password: string) => {
-    console.log("here");
-    if (!data) throw new Error('No data loaded');
-    
-    // Find if there's a thread to delete
-    const threadToDelete = data.chatThreads.find(thread => thread.id === threadId);
-    if (!threadToDelete) {
-      throw new Error('Thread not found');
-    }
-    
-    // Filter out the deleted thread
-    const updatedThreads = data.chatThreads.filter(thread => thread.id !== threadId);
-    
-    // Handle active thread management
-    let activeThreadId = data.activeThreadId;
-    if (activeThreadId === threadId) {
-      // If we're deleting the active thread, set the most recent thread as active
-      // or undefined if no threads remain
-      activeThreadId = updatedThreads.length > 0 ? 
-        updatedThreads.sort((a, b) => b.updatedAt - a.updatedAt)[0].id : 
-        undefined;
-    }
-    
-    const updatedData = {
-      ...data,
-      chatThreads: updatedThreads,
-      activeThreadId
+    const setActiveThread = async (threadId: string, password: string) => {
+        // Update in database
+        const threads = await dbService.getAllChatThreads();
+        for (const thread of threads) {
+            if (thread.isActive) {
+                await dbService.updateChatThread(thread.id, { isActive: false });
+            }
+        }
+        await dbService.updateChatThread(threadId, { isActive: true });
+
+        // Update in-memory state
+        setData(prev => prev ? { ...prev, activeThreadId: threadId } : prev);
     };
-    
-    // Save the updated data
-    await saveData(updatedData, password);
-  };
 
-  // In-memory only: set active thread
-  const setActiveThreadInMemory = (threadId: string): void => {
-    setData(prev => prev ? { ...prev, activeThreadId: threadId } : prev);
-  };
+    const deleteChatThread = async (threadId: string, password: string) => {
+        // Delete from database
+        await dbService.deleteChatThread(threadId);
 
-  // In-memory only: update chat thread messages
-  const updateChatThreadInMemory = (threadId: string, messages: Message[]): void => {
-    setData(prev => {
-      if (!prev) return prev;
-      const updatedThreads = prev.chatThreads.map(thread =>
-        thread.id === threadId ? { ...thread, messages, updatedAt: Date.now(), model: thread.model } : thread
-      );
-      return { ...prev, chatThreads: updatedThreads };
-    });
-  };
+        // Update in-memory state
+        setData(prev => {
+            if (!prev) return prev;
+            const updatedThreads = prev.chatThreads.filter(thread => thread.id !== threadId);
+            const activeThreadId = prev.activeThreadId === threadId
+                ? (updatedThreads.length > 0 ? updatedThreads[0].id : undefined)
+                : prev.activeThreadId;
+            return { ...prev, chatThreads: updatedThreads, activeThreadId };
+        });
+    };
 
-  // In-memory only: delete chat thread
-  const deleteChatThreadInMemory = (threadId: string): void => {
-    setData(prev => {
-      if (!prev) return prev;
-      const updatedThreads = prev.chatThreads.filter(thread => thread.id !== threadId);
-      let activeThreadId = prev.activeThreadId;
-      if (activeThreadId === threadId) {
-        activeThreadId = updatedThreads.length > 0 ? updatedThreads.sort((a, b) => b.updatedAt - a.updatedAt)[0].id : undefined;
-      }
-      return { ...prev, chatThreads: updatedThreads, activeThreadId };
-    });
-  };
+    // In-memory only operations remain the same
+    const setActiveThreadInMemory = (threadId: string) => {
+        setData(prev => prev ? { ...prev, activeThreadId: threadId } : prev);
+    };
 
-  return (
-    <DataContext.Provider value={{ 
-      data, 
-      loadData, 
-      saveData,
-      createChatThread,
-      updateChatThread,
-      setActiveThread,
-      deleteChatThread,
-      setActiveThreadInMemory,
-      updateChatThreadInMemory,
-      deleteChatThreadInMemory
-    }}>
-      {children}
-    </DataContext.Provider>
-  );
+    const updateChatThreadInMemory = (threadId: string, messages: Message[]) => {
+        setData(prev => {
+            if (!prev) return prev;
+            const updatedThreads = prev.chatThreads.map(thread =>
+                thread.id === threadId ? { ...thread, messages } : thread
+            );
+            return { ...prev, chatThreads: updatedThreads };
+        });
+    };
+
+    const deleteChatThreadInMemory = (threadId: string) => {
+        setData(prev => {
+            if (!prev) return prev;
+            const updatedThreads = prev.chatThreads.filter(thread => thread.id !== threadId);
+            const activeThreadId = prev.activeThreadId === threadId
+                ? (updatedThreads.length > 0 ? updatedThreads[0].id : undefined)
+                : prev.activeThreadId;
+            return { ...prev, chatThreads: updatedThreads, activeThreadId };
+        });
+    };
+
+    return (
+        <DataContext.Provider value={{
+            data,
+            loadData,
+            saveData,
+            createChatThread,
+            updateChatThread,
+            setActiveThread,
+            deleteChatThread,
+            setActiveThreadInMemory,
+            updateChatThreadInMemory,
+            deleteChatThreadInMemory
+        }}>
+            {children}
+        </DataContext.Provider>
+    );
 }
 
 export const useData = () => {
-  const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
-  }
-  return context;
+    const context = useContext(DataContext);
+    if (context === undefined) {
+        throw new Error('useData must be used within a DataProvider');
+    }
+    return context;
 };
